@@ -43,6 +43,24 @@ npm run dev
 
 Если порт сервера занят, остановите процесс на `5001` или запустите сервер на другом порту через переменную окружения `PORT`.
 
+## Деплой на GitHub Pages
+
+Это Vite/React-приложение нельзя публиковать через GitHub Pages как `main / root`: в таком режиме GitHub отдает исходный `index.html`, где подключается `/src/main.tsx`, а браузер не умеет запускать TypeScript напрямую. Поэтому появляется белый экран.
+
+Правильный вариант уже добавлен в проект: GitHub Actions workflow `.github/workflows/deploy.yml`.
+
+Настройка в GitHub:
+
+1. Откройте репозиторий на GitHub.
+2. Перейдите в `Settings → Pages`.
+3. В `Build and deployment` выберите `Source: GitHub Actions`.
+4. Сделайте push в ветку `main`.
+5. Дождитесь завершения workflow `Deploy to GitHub Pages`.
+
+После этого GitHub Pages будет публиковать собранную папку `dist`, а не исходники из root.
+
+Важно: GitHub Pages размещает только статический фронтенд. Локальный WebSocket-сервер из `server/server.js` на Pages работать не будет. Для онлайн-мультиплеера нужен отдельный backend-хостинг, например Render, Railway, Fly.io или VPS.
+
 ## Supabase
 
 В проект добавлен клиент Supabase. Переменные окружения лежат в `.env.local`:
