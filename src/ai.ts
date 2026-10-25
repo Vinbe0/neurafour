@@ -420,7 +420,7 @@ export const analyzeMatch = (
       evalBefore,
       evalAfter: grade === 'blunder' ? -500 : evalAfter, // visual graph drop for blunders
       grade,
-      commentary: `${commentaryRu} | ${commentaryEn}`,
+      commentary: { en: commentaryEn, ru: commentaryRu },
       recommendedColumn: recommendedCol,
       boardStateBefore: step.boardBefore,
       boardStateAfter: step.boardAfter,

@@ -19,7 +19,7 @@ export interface MoveAnalysis {
   evalBefore: number;
   evalAfter: number;
   grade: MoveGrade;
-  commentary: string;
+  commentary: { en: string; ru: string };
   recommendedColumn: number;
   boardStateBefore: BoardType;
   boardStateAfter: BoardType;

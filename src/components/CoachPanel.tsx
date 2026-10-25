@@ -3,6 +3,7 @@ import { ArrowLeft, Brain, ChevronLeft, ChevronRight, Crown, Info } from 'lucide
 import type { MoveAnalysis, MoveGrade, PlayerType } from '../types';
 import { playClick } from '../sound';
 import { COLS, ROWS } from '../ai';
+import { useI18n } from '../i18n';
 
 interface CoachPanelProps {
   analyses: MoveAnalysis[];
@@ -11,21 +12,7 @@ interface CoachPanelProps {
   onClose: () => void;
 }
 
-const GRADE_LABELS: Record<MoveGrade, string> = {
-  perfect: 'Perfect',
-  great: 'Great',
-  good: 'Good',
-  mistake: 'Inaccuracy',
-  blunder: 'Blunder',
-};
-
-const GRADE_RU: Record<MoveGrade, string> = {
-  perfect: 'Идеально',
-  great: 'Отлично',
-  good: 'Хорошо',
-  mistake: 'Неточность',
-  blunder: 'Ошибка',
-};
+const GRADES: MoveGrade[] = ['perfect', 'great', 'good', 'mistake', 'blunder'];
 
 const GRADE_SYMBOLS: Record<MoveGrade, string> = {
   perfect: '★',
@@ -35,7 +22,6 @@ const GRADE_SYMBOLS: Record<MoveGrade, string> = {
   blunder: '!!',
 };
 
-const getPlayerLabel = (player: PlayerType) => (player === 'red' ? 'Red / Красные' : 'Blue / Синие');
 
 export const CoachPanel: React.FC<CoachPanelProps> = ({
   analyses,
@@ -43,6 +29,8 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   onOpenPro,
   onClose,
 }) => {
+  const { t, lang } = useI18n();
+  const getPlayerLabel = (player: PlayerType) => (player === 'red' ? t('player.red') : t('player.blue'));
   const [selectedTurn, setSelectedTurn] = useState(analyses[0]?.turn ?? 1);
 
   const currentAnalysis = analyses.find((a) => a.turn === selectedTurn) ?? analyses[0];
@@ -66,9 +54,9 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
       <section className="coach-page">
         <div className="coach-empty glass-panel">
           <Brain size={34} />
-          <h2>Analysis unavailable</h2>
-          <p>Finish at least one move before opening the coach.</p>
-          <button className="glass-button active" onClick={onClose}>Back to game</button>
+          <h2>{t('coach.unavailable')}</h2>
+          <p>{t('coach.unavailableBody')}</p>
+          <button className="glass-button active" onClick={onClose}>{t('coach.backToGame')}</button>
         </div>
       </section>
     );
@@ -78,7 +66,6 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   const recommendedRow = findDropRow(currentAnalysis.boardStateBefore, currentAnalysis.recommendedColumn);
   const recommendedPlayer = currentAnalysis.player;
   const recommendationAvailable = currentAnalysis.recommendedColumn >= 0 && recommendedRow >= 0;
-  const commentaryParts = currentAnalysis.commentary.split('|').map((part) => part.trim()).filter(Boolean);
 
   const selectTurn = (turn: number) => {
     playClick();
@@ -101,17 +88,17 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
         <header className="coach-header glass-panel">
           <button className="glass-button coach-back" onClick={() => { playClick(); onClose(); }}>
             <ArrowLeft size={16} />
-            Game
+            {t('coach.game')}
           </button>
           <div>
-            <span className="coach-kicker">AI Coach</span>
-            <h2>Post-game review</h2>
-            <p>Move-by-move decisions, missed threats, and practical next moves.</p>
+            <span className="coach-kicker">{t('coach.kicker')}</span>
+            <h2>{t('coach.title')}</h2>
+            <p>{t('coach.subtitle')}</p>
           </div>
           {!isPro && (
             <button className="glass-button coach-pro" onClick={() => { playClick(); onOpenPro(); }}>
               <Crown size={16} />
-              Deeper review
+              {t('coach.deeper')}
             </button>
           )}
         </header>
@@ -123,15 +110,15 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
                 <span>{summary.accuracy}%</span>
               </div>
               <div>
-                <h3>{summary.accuracy >= 85 ? 'Sharp match' : summary.accuracy >= 70 ? 'Solid match' : 'Training match'}</h3>
-                <p>{analyses.length} moves analyzed</p>
+                <h3>{summary.accuracy >= 85 ? t('coach.sharp') : summary.accuracy >= 70 ? t('coach.solid') : t('coach.training')}</h3>
+                <p>{t('coach.analyzed', { count: analyses.length })}</p>
               </div>
             </div>
 
             <div className="grade-list">
-              {(Object.keys(GRADE_LABELS) as MoveGrade[]).map((grade) => (
+              {GRADES.map((grade) => (
                 <div key={grade} className={`grade-row grade-${grade}`}>
-                  <span>{GRADE_SYMBOLS[grade]} {GRADE_RU[grade]}</span>
+                  <span>{GRADE_SYMBOLS[grade]} {t(`grade.${grade}`)}</span>
                   <strong>{summary.counts[grade]}</strong>
                 </div>
               ))}
@@ -139,16 +126,16 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
 
             {!isPro && (
               <div className="coach-upgrade">
-                <strong>PRO review</strong>
-                <span>Unlock deeper search depth and all skins for the complete training loop.</span>
-                <button onClick={() => { playClick(); onOpenPro(); }}>Upgrade</button>
+                <strong>{t('coach.proTitle')}</strong>
+                <span>{t('coach.proBody')}</span>
+                <button onClick={() => { playClick(); onOpenPro(); }}>{t('coach.upgrade')}</button>
               </div>
             )}
           </aside>
 
           <main className="coach-main glass-panel">
             <div className="turn-strip">
-              <button className="turn-arrow" onClick={goPrevious} disabled={selectedTurn <= 1} aria-label="Previous move">
+              <button className="turn-arrow" onClick={goPrevious} disabled={selectedTurn <= 1} aria-label={t('coach.prev')}>
                 <ChevronLeft size={18} />
               </button>
               <div className="turn-list">
@@ -163,16 +150,16 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
                   </button>
                 ))}
               </div>
-              <button className="turn-arrow" onClick={goNext} disabled={selectedTurn >= analyses.length} aria-label="Next move">
+              <button className="turn-arrow" onClick={goNext} disabled={selectedTurn >= analyses.length} aria-label={t('coach.next')}>
                 <ChevronRight size={18} />
               </button>
             </div>
 
             <div className="move-detail">
               <div className="move-title">
-                <span>Move {currentAnalysis.turn}</span>
+                <span>{t('coach.move', { n: currentAnalysis.turn })}</span>
                 <h3 className={`grade-text grade-${currentAnalysis.grade}`}>
-                  {GRADE_LABELS[currentAnalysis.grade]} / {GRADE_RU[currentAnalysis.grade]}
+                  {t(`grade.${currentAnalysis.grade}`)}
                 </h3>
               </div>
               <span className={`player-chip ${currentAnalysis.player}`}>
@@ -181,21 +168,20 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
             </div>
 
             <div className={`coach-comment grade-${currentAnalysis.grade}`}>
-              <p>{commentaryParts[0] ?? currentAnalysis.commentary}</p>
-              {commentaryParts[1] && <small>{commentaryParts[1]}</small>}
+              <p>{currentAnalysis.commentary[lang]}</p>
             </div>
 
             <div className="move-comparison">
               <div>
-                <span>Played</span>
-                <strong>Column {currentAnalysis.column + 1}</strong>
+                <span>{t('coach.played')}</span>
+                <strong>{t('moves.column', { col: currentAnalysis.column + 1 })}</strong>
               </div>
               <div>
-                <span>Recommended</span>
-                <strong>{recommendationAvailable ? `Column ${currentAnalysis.recommendedColumn + 1}` : 'No legal move'}</strong>
+                <span>{t('coach.recommended')}</span>
+                <strong>{recommendationAvailable ? t('moves.column', { col: currentAnalysis.recommendedColumn + 1 }) : t('coach.noLegal')}</strong>
               </div>
               <div>
-                <span>Eval shift</span>
+                <span>{t('coach.evalShift')}</span>
                 <strong>{formatEval(currentAnalysis.evalAfter - currentAnalysis.evalBefore)}</strong>
               </div>
             </div>
@@ -203,8 +189,8 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
 
           <aside className="coach-board-card glass-panel">
             <div className="coach-board-title">
-              <h3>Position after move</h3>
-              <span><Info size={13} /> Played token is outlined. Recommended move appears as a ghost.</span>
+              <h3>{t('coach.boardTitle')}</h3>
+              <span><Info size={13} /> {t('coach.boardHint')}</span>
             </div>
             <div className="coach-board">
               {Array.from({ length: ROWS }).map((_, row) => (
