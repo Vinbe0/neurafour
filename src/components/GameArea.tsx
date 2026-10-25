@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain, Undo2, Keyboard, ListOrdered } from 'lucide-react';
+import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain, Undo2, Keyboard, ListOrdered, Copy, Check, LogOut } from 'lucide-react';
 import type { BoardType, PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
 import {
   createEmptyBoard,
@@ -92,7 +92,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const notify = useToast();
 
   // Gameplay States
-  const [gameMode, setGameMode] = useState<GameMode>('ai');
+  // Invite links (?room=CODE) open straight into online mode
+  const [gameMode, setGameMode] = useState<GameMode>(() => (new URLSearchParams(window.location.search).has('room') ? 'multiplayer' : 'ai'));
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
   const [aiFirst, setAiFirst] = useState(false);
   const [board, setBoard] = useState<BoardType>(createEmptyBoard());
@@ -103,6 +104,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [hintColumn, setHintColumn] = useState<number | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   // Bumped on every reset so a pending AI move from an old game is ignored
   const [gameId, setGameId] = useState(0);
   const gameIdRef = useRef(0);
@@ -116,6 +118,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const confettiAnimId = useRef<number | null>(null);
 
   const isGameOver = !!winner || isDraw;
+  // Online: stay on the lobby screen (room code, invite link, chat) until the opponent arrives
+  const inLobby = gameMode === 'multiplayer' && (!roomCode || !opponent);
 
   // Canvas Confetti Win Celebration
   const startConfetti = () => {
@@ -438,6 +442,14 @@ export const GameArea: React.FC<GameAreaProps> = ({
     }, 4000); // hint disappears after 4 seconds
   };
 
+  const handleCopyInvite = () => {
+    if (!roomCode) return;
+    playClick();
+    void navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?room=${roomCode}`);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
   // Launch AI Coach commentary timeline
   const handleOpenCoachPanel = () => {
     playClick();
@@ -455,7 +467,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
       const target = e.target as HTMLElement | null;
       if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
       if (document.querySelector('.modal-overlay')) return;
-      if (gameMode === 'multiplayer' && !roomCode) return;
+      if (inLobby) return;
 
       if (e.key >= '1' && e.key <= String(COLS)) {
         e.preventDefault();
@@ -503,7 +515,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
         ))}
       </div>
 
-      {gameMode === 'multiplayer' && !roomCode ? (
+      {inLobby ? (
         <Lobby
           profile={profile}
           roomCode={roomCode}
@@ -672,6 +684,24 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
         {/* Right Side: status, settings, move list */}
         <div className="side-column">
+
+          {/* Online room info stays visible during the game */}
+          {gameMode === 'multiplayer' && roomCode && (
+            <section className="glass-panel room-card">
+              <div>
+                <span className="panel-label">{t('lobby.room')}</span>
+                <strong className="room-code">{roomCode}</strong>
+              </div>
+              <div className="room-actions">
+                <button className="glass-button" onClick={handleCopyInvite} title={t('lobby.copy')} aria-label={t('lobby.copy')}>
+                  {linkCopied ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+                <button className="glass-button" onClick={onLeaveLobby} title={t('lobby.leave')} aria-label={t('lobby.leave')}>
+                  <LogOut size={14} />
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* Turn status Card */}
           <section className={`status-card glass-panel tone-${statusTone}`} aria-live="polite">

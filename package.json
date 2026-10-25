@@ -10,7 +10,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:lan": "concurrently --kill-others \"vite --host\" \"npm run server\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",

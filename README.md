@@ -68,6 +68,10 @@ npm install
 npm run dev        # Vite client + WebSocket server on :5001
 ```
 
+**Play online locally:** open http://localhost:5173 in two browser windows. In one, choose **Online 1v1 → Create room** and copy the invite link. Open the link in the other window and press **Join**.
+
+**Play with someone on the same Wi-Fi:** run `npm run dev:lan` and give them the `Network:` address it prints (for example `http://192.168.1.20:5173`). Their browser connects to the multiplayer server on your machine. macOS may ask you to allow incoming connections for Node.
+
 Optional settings in `.env.local`:
 
 ```env
