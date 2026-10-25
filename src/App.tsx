@@ -187,8 +187,8 @@ function App() {
 
   const connectWebSocket = (customCode: string | null, action: 'create' | 'join') => {
     try {
-      // Connect to multiplayer server running on port 5001
-      const wsUrl = `ws://${window.location.hostname}:5001`;
+      // Use the hosted server when configured, otherwise the local one on port 5001
+      const wsUrl = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:5001`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {

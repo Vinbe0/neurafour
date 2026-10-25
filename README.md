@@ -1,132 +1,82 @@
 # NeuraFour
 
-NeuraFour — современная веб-платформа для игры в «Четыре в ряд», сделанная не как простая учебная сетка, а как прототип игрового сервиса с удержанием, прогрессом и обучением.
+[![Deploy](https://github.com/Vinbe0/neurafour/actions/workflows/deploy.yml/badge.svg)](https://github.com/Vinbe0/neurafour/actions/workflows/deploy.yml)
 
-## Коротко о продукте
+**Connect Four with a minimax AI, real-time online play, and a coach that reviews your game.**
 
-Я сделал интерактивную платформу для быстрых дуэлей в Connect Four: игрок может играть локально, против ИИ или с другом через WebSocket-комнату. После партии доступен AI Coach, который разбирает ходы, показывает ошибки, рекомендуемые колонки и помогает понять, где была упущена победа или защита.
+**▶ Play it: [vinbe0.github.io/neurafour](https://vinbe0.github.io/neurafour/)**  ·  [Русская версия](README.ru.md)
 
-Продукт рассчитан на людей, которым нужна не просто разовая браузерная игра, а понятный и приятный способ тренировать стратегическое мышление: школьников, начинающих игроков, друзей для коротких онлайн-матчей и пользователей, которым интересен соревновательный прогресс.
+![NeuraFour gameplay](docs/screenshot.png)
 
-Ценность сервиса в том, что он соединяет игру, обучение и мотивацию возвращаться: профиль игрока, история матчей, очки CyberPoints, магазин скинов, лидерборд по городам, подсказки, анализ партии и PRO-модель создают основу для полноценного игрового продукта.
+## Features
 
-## Что реализовано
+- **AI opponent, three levels.** Minimax search with alpha-beta pruning. Easy looks 2 moves ahead (with some random play), Medium looks 4 moves ahead, and Hard looks 6.
+- **Online multiplayer.** Create a room, share the 5-letter code, and play a friend in real time over WebSockets, with in-game chat and rematches.
+- **AI Coach.** After each game, every move is graded (perfect / great / good / mistake / blunder) against the engine's best move. The coach points out missed wins, missed blocks and moves that handed your opponent a win.
+- **Accounts and leaderboard.** Supabase auth, with a global and per-city leaderboard and match history. It works offline too, using a localStorage cache.
+- **Progression.** Levels, CyberPoints, a skin shop, and a PRO tier prototype.
+- Dark/light theme, responsive layout, sound effects, and a highlighted winning line.
 
-- Полные правила Connect Four: падение фишек по колонке, очередность ходов, запрет хода в заполненную колонку, победа по горизонтали, вертикали и диагонали.
-- Режимы игры: против ИИ, локальная игра на одном экране, мультиплеер с другом по коду комнаты.
-- ИИ с тремя сложностями: easy, medium, hard на основе minimax и alpha-beta pruning.
-- AI Coach после партии: оценка ходов, поиск грубых ошибок, сравнение сыгранной и рекомендованной колонки.
-- Профиль игрока: никнейм, город, аватар, статистика, история матчей, уровень и прогресс.
-- Лидерборд: глобальный и по городам, включая текущего пользователя.
-- Магазин скинов и CyberPoints как игровой цикл прогресса.
-- PRO-модаль как прототип монетизации.
-- Темная и светлая темы, адаптивная верстка, звуки и визуальная подсветка победной линии.
+## How the AI works
 
-## Технологии
+[`src/ai.ts`](src/ai.ts) does three things:
 
-- React
-- TypeScript
-- Vite
-- Express
-- WebSocket (`ws`)
-- Supabase для глобального рейтинга и истории матчей
-- LocalStorage как офлайн-кэш профиля, истории и прогресса
+1. **Tactical checks first.** If the AI can win this move, it plays it. If the opponent can win next move, it blocks.
+2. **Minimax with alpha-beta pruning.** It searches the game tree to a depth set by the difficulty. It tries center columns first (`3, 2, 4, 1, 5, 0, 6`), which makes pruning cut far more branches. A win found sooner scores higher than a win found later.
+3. **Heuristic evaluation.** When the search stops, it scores the board by counting every 4-cell window: open threes and twos for each side, plus a bonus for center control.
 
-## Запуск
+The AI Coach reuses the same engine. For every move in your game, it compares the move you played with the engine's recommendation and with the position's score before and after.
+
+## Multiplayer architecture
+
+```
+Browser ──WebSocket──▶ Node server (Express + ws)
+                        • rooms keyed by 5-letter code
+                        • server owns the board and turn order
+                        • validates every move, detects the winner
+```
+
+The server is authoritative. It rejects moves made out of turn, moves into full or invalid columns, and moves after the game ends, so a modified client can't cheat. `GET /health` reports how many rooms are active.
+
+## Tech stack
+
+React 19 · TypeScript · Vite · Node.js · Express · `ws` · Supabase (Postgres + Auth, row-level security) · Vitest · GitHub Actions
+
+## Testing
+
+```bash
+npm test
+```
+
+There are 26 unit tests for the game engine and AI, in [`src/ai.test.ts`](src/ai.test.ts). They cover:
+
+- win detection in all four directions
+- the AI taking wins, blocking losses, and preferring a win over a block
+- the Hard AI setting up a double threat
+- never playing into a full column
+- search speed
+- the AI Coach's move grades
+
+CI runs the tests before every deploy.
+
+## Running locally
 
 ```bash
 npm install
-npm run dev
+npm run dev        # Vite client + WebSocket server on :5001
 ```
 
-Клиент запускается через Vite, WebSocket-сервер используется для мультиплеера.
-
-Если порт сервера занят, остановите процесс на `5001` или запустите сервер на другом порту через переменную окружения `PORT`.
-
-## Деплой на GitHub Pages
-
-Это Vite/React-приложение нельзя публиковать через GitHub Pages как `main / root`: в таком режиме GitHub отдает исходный `index.html`, где подключается `/src/main.tsx`, а браузер не умеет запускать TypeScript напрямую. Поэтому появляется белый экран.
-
-Правильный вариант уже добавлен в проект: GitHub Actions workflow `.github/workflows/deploy.yml`.
-
-Настройка в GitHub:
-
-1. Откройте репозиторий на GitHub.
-2. Перейдите в `Settings → Pages`.
-3. В `Build and deployment` выберите `Source: GitHub Actions`.
-4. Сделайте push в ветку `main`.
-5. Дождитесь завершения workflow `Deploy to GitHub Pages`.
-
-После этого GitHub Pages будет публиковать собранную папку `dist`, а не исходники из root.
-
-Важно: GitHub Pages размещает только статический фронтенд. Локальный WebSocket-сервер из `server/server.js` на Pages работать не будет. Для онлайн-мультиплеера нужен отдельный backend-хостинг, например Render, Railway, Fly.io или VPS.
-
-## Supabase
-
-В проект добавлен клиент Supabase. Переменные окружения лежат в `.env.local`:
+Optional settings in `.env.local`:
 
 ```env
-VITE_SUPABASE_URL=https://blbwyltfaavrtodudprg.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_vP8Q4hBpKD0HySSs-O6YFw_iqhMKcgp
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
+VITE_WS_URL=wss://your-server.example.com   # defaults to ws://<host>:5001
 ```
 
-Чтобы глобальный рейтинг стал реальным, создайте таблицы в Supabase SQL Editor:
+To turn on the real leaderboard, run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor.
 
-```sql
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  username text not null,
-  city text not null,
-  avatar text not null,
-  points integer not null default 0,
-  is_pro boolean not null default false,
-  wins integer not null default 0,
-  losses integer not null default 0,
-  draws integer not null default 0,
-  updated_at timestamptz not null default now()
-);
+## Deployment
 
-create table if not exists public.matches (
-  id text primary key,
-  player_id uuid not null references public.profiles(id) on delete cascade,
-  username text not null,
-  opponent text not null,
-  mode text not null,
-  difficulty text,
-  result text not null,
-  points_earned integer not null default 0,
-  created_at timestamptz not null default now()
-);
-
-alter table public.profiles enable row level security;
-alter table public.matches enable row level security;
-
-create policy "Public leaderboard read"
-on public.profiles for select
-using (true);
-
-create policy "Users create own profile"
-on public.profiles for insert
-with check (auth.uid() = id);
-
-create policy "Users update own profile"
-on public.profiles for update
-using (auth.uid() = id)
-with check (auth.uid() = id);
-
-create policy "Users insert own matches"
-on public.matches for insert
-with check (auth.uid() = player_id);
-
-create policy "Users read own matches"
-on public.matches for select
-using (auth.uid() = player_id);
-```
-
-После этого зарегистрированный пользователь будет синхронизироваться в `profiles`, матчи будут сохраняться в `matches`, а таблица лидеров будет читать реальные данные из Supabase.
-
-Для удобного тестирования можно в Supabase отключить обязательное подтверждение email: Authentication → Providers → Email → Confirm email. Если подтверждение включено, после регистрации нужно подтвердить письмо перед входом.
-
-## Почему это выделяется
-
-Обычные реализации Connect Four заканчиваются на поле 7x6. Здесь игра упакована как сервис: есть прогресс, разбор ошибок, социальный слой, кастомизация и идея монетизации. Это показывает не только реализацию правил, но и продуктовый подход: пользователь должен понимать, зачем возвращаться после первой партии.
+- **Frontend:** GitHub Pages, deployed by [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) on every push to `main`. The workflow reads the `VITE_*` values from the repo's Actions variables.
+- **Multiplayer server:** Render, defined in [`render.yaml`](render.yaml) (free web service, health check on `/health`).
