@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, LogIn, Mail, UserPlus, X } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { playClick, playUnlock } from '../sound';
+import { useI18n } from '../i18n';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+  const { t } = useI18n();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,17 +25,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setStatus(null);
 
     if (!supabase) {
-      setStatus('Supabase не настроен. Проверьте .env.local.');
+      setStatus(t('auth.notConfigured'));
       return;
     }
 
     if (password.length < 6) {
-      setStatus('Пароль должен содержать минимум 6 символов.');
+      setStatus(t('auth.shortPassword'));
       return;
     }
 
     if (mode === 'signup' && password !== confirmPassword) {
-      setStatus('Пароли не совпадают.');
+      setStatus(t('auth.mismatch'));
       return;
     }
 
@@ -54,7 +56,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     playUnlock();
 
     if (mode === 'signup' && !response.data.session) {
-      setStatus('Аккаунт создан. Проверьте email для подтверждения входа.');
+      setStatus(t('auth.checkEmail'));
       return;
     }
 
@@ -64,7 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   return (
     <div className="modal-overlay">
       <div className="modal-content auth-modal glass-panel">
-        <button className="modal-close" onClick={() => { playClick(); onClose(); }} aria-label="Закрыть авторизацию">
+        <button className="modal-close" onClick={() => { playClick(); onClose(); }} aria-label={t('auth.close')}>
           <X size={20} />
         </button>
 
@@ -73,18 +75,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             {mode === 'signin' ? <LogIn size={28} /> : <UserPlus size={28} />}
           </div>
           <span>NeuraFour ID</span>
-          <h2>{mode === 'signin' ? 'Вход в аккаунт' : 'Создать аккаунт'}</h2>
+          <h2>{mode === 'signin' ? t('auth.signInTitle') : t('auth.signUpTitle')}</h2>
           <p>
-            Сохраняйте прогресс, историю матчей и участвуйте в реальном глобальном рейтинге.
+            {t('auth.body')}
           </p>
         </div>
 
         <div className="auth-tabs">
           <button className={mode === 'signin' ? 'active' : ''} onClick={() => { playClick(); setMode('signin'); setStatus(null); }}>
-            Войти
+            {t('auth.signIn')}
           </button>
           <button className={mode === 'signup' ? 'active' : ''} onClick={() => { playClick(); setMode('signup'); setStatus(null); }}>
-            Регистрация
+            {t('auth.signUp')}
           </button>
         </div>
 
@@ -105,14 +107,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </label>
 
           <label>
-            <span>Пароль</span>
+            <span>{t('auth.password')}</span>
             <div>
               <Lock size={16} />
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="Минимум 6 символов"
+                placeholder={t('auth.passwordPlaceholder')}
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 required
               />
@@ -121,14 +123,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
           {mode === 'signup' && (
             <label>
-              <span>Повторите пароль</span>
+              <span>{t('auth.repeat')}</span>
               <div>
                 <Lock size={16} />
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder="Еще раз пароль"
+                  placeholder={t('auth.repeatPlaceholder')}
                   autoComplete="new-password"
                   required
                 />
@@ -139,7 +141,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           {status && <div className="auth-status">{status}</div>}
 
           <button className="glass-button active auth-submit" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Обработка...' : mode === 'signin' ? 'Войти' : 'Создать аккаунт'}
+            {isSubmitting ? t('auth.processing') : mode === 'signin' ? t('auth.signIn') : t('auth.signUpTitle')}
           </button>
         </form>
       </div>

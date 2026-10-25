@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Copy, Check, Users, ShieldAlert, ArrowLeft, Loader2, MessageSquare } from 'lucide-react';
 import type { UserProfile, ChatMessage } from '../types';
 import { playClick } from '../sound';
+import { useI18n } from '../i18n';
 
 interface LobbyProps {
   profile: UserProfile;
@@ -24,6 +25,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   onSendChatMessage,
   onLeaveLobby,
 }) => {
+  const { t } = useI18n();
   const [inputCode, setInputCode] = useState('');
   const [copied, setCopied] = useState(false);
   const [chatText, setChatText] = useState('');
@@ -90,43 +92,43 @@ export const Lobby: React.FC<LobbyProps> = ({
       {!roomCode ? (
         <div className="glass-panel" style={{ padding: '40px 30px', textAlign: 'center', position: 'relative' }}>
           <Users className="neon-text-cyan" size={48} style={{ margin: '0 auto 15px', animation: 'blink-glow 2s infinite' }} />
-          <h2 className="display-font" style={{ fontSize: '1.8rem', background: 'linear-gradient(to right, #00f0ff, #ff007f)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '10px' }}>
-            МУЛЬТИПЛЕЕР АРЕНА / MULTIPLAYER DUEL
+          <h2 className="display-font gradient-title" style={{ fontSize: '1.8rem', marginBottom: '10px' }}>
+            {t('lobby.title')}
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto 30px', lineHeight: '1.5' }}>
-            Сразитесь с друзьями в реальном времени! Создайте приватную комнату или подключитесь по коду.
+            {t('lobby.subtitle')}
           </p>
 
           {connecting ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', padding: '20px' }}>
               <Loader2 className="animate-spin" size={36} style={{ animation: 'rotate-dash 1.5s linear infinite', color: 'var(--accent-cyan)' }} />
               <span className="display-font" style={{ fontSize: '0.85rem', color: 'var(--accent-cyan)' }}>
-                ПОДКЛЮЧЕНИЕ К СЕТИ / SECURING CHANNEL...
+                {t('lobby.connecting')}
               </span>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', maxWidth: '600px', margin: '0 auto', textAlign: 'left' }}>
+            <div className="lobby-options">
               
               {/* Option A: Create Room */}
-              <div className="glass-panel" style={{ padding: '25px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0, 240, 255, 0.1)' }}>
+              <div className="glass-panel lobby-option">
                 <h3 className="display-font neon-text-cyan" style={{ fontSize: '1rem', marginBottom: '10px' }}>
-                  СОЗДАТЬ БОЙ / HOST GAME
+                  {t('lobby.hostTitle')}
                 </h3>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '20px', minHeight: '36px' }}>
-                  Получите уникальную ссылку и отправьте её другу для мгновенного подключения.
+                  {t('lobby.hostBody')}
                 </p>
                 <button className="glass-button active" onClick={handleCreate} style={{ width: '100%', justifyContent: 'center' }}>
-                  Создать Лобби
+                  {t('lobby.hostButton')}
                 </button>
               </div>
 
               {/* Option B: Join Room */}
-              <div className="glass-panel" style={{ padding: '25px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255, 0, 127, 0.1)' }}>
+              <div className="glass-panel lobby-option">
                 <h3 className="display-font neon-text-pink" style={{ fontSize: '1rem', marginBottom: '10px' }}>
-                  ВОЙТИ В БОЙ / JOIN LOBBY
+                  {t('lobby.joinTitle')}
                 </h3>
                 <form onSubmit={handleJoin}>
-                  <label className="cyber-label" style={{ fontSize: '0.65rem' }}>Код Комнаты / Room Code</label>
+                  <label className="cyber-label" style={{ fontSize: '0.65rem' }}>{t('lobby.roomCode')}</label>
                   <input
                     type="text"
                     maxLength={5}
@@ -138,7 +140,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                     required
                   />
                   <button type="submit" className="glass-button pink" style={{ width: '100%', justifyContent: 'center' }}>
-                    Подключиться
+                    {t('lobby.joinButton')}
                   </button>
                 </form>
               </div>
@@ -149,13 +151,13 @@ export const Lobby: React.FC<LobbyProps> = ({
           {/* Quick Troubleshooting reminder */}
           <div style={{ marginTop: '35px', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
             <ShieldAlert size={14} />
-            <span>Убедитесь, что сервер мультиплеера запущен локально на порту 5001 (`npm run server`).</span>
+            <span>{t('lobby.serverNote')}</span>
           </div>
 
         </div>
       ) : (
         /* CONNECTED ROOM CONTAINER */
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '20px' }}>
+        <div className="lobby-room">
           
           {/* Left panel: Room info & Player Slots */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -167,10 +169,10 @@ export const Lobby: React.FC<LobbyProps> = ({
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', cursor: 'pointer', marginBottom: '15px' }}
               >
                 <ArrowLeft size={14} />
-                <span>Покинуть / Exit</span>
+                <span>{t('lobby.leave')}</span>
               </button>
 
-              <span className="cyber-label" style={{ fontSize: '0.65rem' }}>Комната / Room</span>
+              <span className="cyber-label" style={{ fontSize: '0.65rem' }}>{t('lobby.room')}</span>
               <h2 className="display-font neon-text-cyan" style={{ fontSize: '1.8rem', letterSpacing: '0.05em', marginBottom: '15px', textAlign: 'center' }}>
                 {roomCode}
               </h2>
@@ -184,12 +186,12 @@ export const Lobby: React.FC<LobbyProps> = ({
                 {copied ? (
                   <>
                     <Check size={14} style={{ color: 'var(--accent-green)' }} />
-                    <span>ССЫЛКА СКОПИРОВАНА</span>
+                    <span>{t('lobby.copied')}</span>
                   </>
                 ) : (
                   <>
                     <Copy size={14} />
-                    <span>КОПИРОВАТЬ ССЫЛКУ</span>
+                    <span>{t('lobby.copy')}</span>
                   </>
                 )}
               </button>
@@ -198,7 +200,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             {/* Players Slots Card */}
             <div className="glass-panel" style={{ padding: '20px', flex: 1 }}>
               <h4 className="display-font neon-text-pink" style={{ fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px', marginBottom: '15px' }}>
-                БОЙЦЫ / FIGHTERS
+                {t('lobby.players')}
               </h4>
 
               {/* Player 1 Slot */}
@@ -211,9 +213,9 @@ export const Lobby: React.FC<LobbyProps> = ({
                 </span>
                 <div>
                   <span className="display-font" style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>
-                    {side === 'red' ? profile.username : (opponent?.username || 'Оппонент')}
+                    {side === 'red' ? profile.username : (opponent?.username || t('player.opponent'))}
                   </span>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Хозяин / Host (Красные)</div>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{t('lobby.host')}</div>
                 </div>
               </div>
 
@@ -228,9 +230,9 @@ export const Lobby: React.FC<LobbyProps> = ({
                   </span>
                   <div>
                     <span className="display-font" style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>
-                      {side === 'yellow' ? profile.username : (opponent?.username || 'Оппонент')}
+                      {side === 'yellow' ? profile.username : (opponent?.username || t('player.opponent'))}
                     </span>
-                    <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Гость / Challenger (Синие)</div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{t('lobby.guest')}</div>
                   </div>
                 </div>
               ) : (
@@ -240,7 +242,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                 }}>
                   <Loader2 className="animate-spin" size={14} style={{ animation: 'rotate-dash 1.5s linear infinite', color: 'var(--accent-cyan)' }} />
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                    Ожидание соперника...
+                    {t('lobby.waiting')}
                   </span>
                 </div>
               )}
@@ -253,7 +255,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px', marginBottom: '15px' }}>
               <MessageSquare className="neon-text-cyan" size={18} />
               <h4 className="display-font" style={{ fontSize: '0.85rem' }}>
-                ЛОКАЛЬНЫЙ РАДИОКАНАЛ / LIVE GRID CHAT
+                {t('lobby.chat')}
               </h4>
             </div>
 
@@ -269,7 +271,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             }}>
               {chatHistory.length === 0 ? (
                 <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.8rem' }}>
-                  Канал пуст. Напишите приветствие!
+                  {t('lobby.chatEmpty')}
                 </div>
               ) : (
                 chatHistory.map((msg) => {
@@ -308,7 +310,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                           background: isSelf ? 'rgba(255, 0, 127, 0.1)' : 'rgba(0, 240, 255, 0.1)',
                           border: isSelf ? '1px solid rgba(255, 0, 127, 0.2)' : '1px solid rgba(0, 240, 255, 0.2)',
                           fontSize: '0.85rem',
-                          color: '#fff',
+                          color: 'var(--text-primary)',
                           wordBreak: 'break-word'
                         }}>
                           {msg.text}
@@ -326,7 +328,7 @@ export const Lobby: React.FC<LobbyProps> = ({
               <input
                 type="text"
                 className="cyber-input"
-                placeholder="Сообщение на сетку... / Say something..."
+                placeholder={t('lobby.chatPlaceholder')}
                 value={chatText}
                 onChange={(e) => setChatText(e.target.value)}
                 style={{ fontSize: '0.85rem' }}

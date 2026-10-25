@@ -2,6 +2,8 @@ import React from 'react';
 import { X, Coins, ShoppingBag, Check, Crown } from 'lucide-react';
 import type { UserProfile, SkinItem } from '../types';
 import { playClick, playUnlock } from '../sound';
+import { useI18n } from '../i18n';
+import { useToast } from '../toast';
 
 interface ShopModalProps {
   isOpen: boolean;
@@ -22,7 +24,7 @@ const SKINS: SkinItem[] = [
     yellowColor: 'var(--accent-cyan)',
     redGlow: '0 0 10px rgba(255, 0, 127, 0.6)',
     yellowGlow: '0 0 10px rgba(0, 240, 255, 0.6)',
-    description: 'Neon cyan vs hot pink checker set locked inside an cybernetic carbon fiber grid.',
+    description: 'Neon cyan vs hot pink checker set locked inside a carbon-fiber grid.',
     descriptionRu: 'Неоновые розовые и голубые фишки внутри кибернетического темно-фиолетового каркаса.'
   },
   {
@@ -73,6 +75,8 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   onUnlockSkin,
   onEquipSkin,
 }) => {
+  const { t, lang } = useI18n();
+  const notify = useToast();
   if (!isOpen) return null;
 
   const handleAction = (skin: SkinItem) => {
@@ -88,7 +92,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
         onUnlockSkin(skin.id, skin.price);
         playUnlock();
       } else {
-        alert('Недостаточно CyberPoints! Выигрывайте игры против ИИ или в мультиплеере. / Not enough CyberPoints!');
+        notify(t('shop.notEnough'), 'error');
       }
     }
   };
@@ -96,7 +100,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   return (
     <div className="modal-overlay">
       <div className="modal-content glass-panel" style={{ border: '1px solid var(--accent-pink)', maxWidth: '640px' }}>
-        <button className="modal-close" onClick={() => { playClick(); onClose(); }}>
+        <button className="modal-close" onClick={() => { playClick(); onClose(); }} aria-label={t('auth.close')}>
           <X size={20} />
         </button>
 
@@ -105,10 +109,10 @@ export const ShopModal: React.FC<ShopModalProps> = ({
           <ShoppingBag className="neon-text-pink" size={30} style={{ animation: 'blink-glow 2s infinite' }} />
           <div>
             <h2 className="display-font" style={{ fontSize: '1.6rem', color: 'var(--accent-pink)' }}>
-              МАГАЗИН ЭКИПИРОВКИ / COSMETIC SHOP
+              {t('shop.title')}
             </h2>
             <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-secondary)' }}>
-              Unlock cyber skins and customize your board arena
+              {t('shop.subtitle')}
             </span>
           </div>
         </div>
@@ -125,7 +129,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
           marginBottom: '20px'
         }}>
           <span className="display-font" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Текущий баланс / Cyber Balance:
+            {t('shop.balance')}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Coins size={18} className="neon-text-cyan" />
@@ -190,16 +194,15 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                 {/* Skin Info */}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <h3 className="display-font" style={{ fontSize: '1rem', fontWeight: 'bold' }}>{skin.name}</h3>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>({skin.nameRu})</span>
+                    <h3 className="display-font" style={{ fontSize: '1rem', fontWeight: 'bold' }}>{lang === 'ru' ? skin.nameRu : skin.name}</h3>
                     {profile.isPro && skin.price > 0 && (
                       <span className="cyber-badge pro" style={{ padding: '0px 6px', fontSize: '0.6rem', transform: 'scale(0.9)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                        <Crown size={8} /> PRO UNLOCK
+                        <Crown size={8} /> {t('shop.proUnlock')}
                       </span>
                     )}
                   </div>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.25' }}>
-                    {profile.username.includes('?') ? skin.description : skin.descriptionRu}
+                    {lang === 'ru' ? skin.descriptionRu : skin.description}
                   </p>
                 </div>
 
@@ -219,10 +222,10 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                     {isActive ? (
                       <>
                         <Check size={12} />
-                        <span>АКТИВЕН</span>
+                        <span>{t('shop.active')}</span>
                       </>
                     ) : isUnlocked ? (
-                      <span>ВЫБРАТЬ</span>
+                      <span>{t('shop.equip')}</span>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                         <Coins size={12} className="neon-text-cyan" />
