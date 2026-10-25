@@ -73,6 +73,7 @@ function App() {
   const [opponent, setOpponent] = useState<{ username: string; avatar: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [opponentWantsRestart, setOpponentWantsRestart] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Load profile progress from LocalStorage on launch
   useEffect(() => {
@@ -199,6 +200,7 @@ function App() {
   // ----------------------------------------------------
 
   const connectWebSocket = (customCode: string | null, action: 'create' | 'join') => {
+    setConnectionError(null);
     try {
       // Use the hosted server when configured, otherwise the local one on port 5001
       const wsUrl = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:5001`;
@@ -275,6 +277,7 @@ function App() {
           case 'error': {
             playAlert();
             notify(pickServerText(data.message, lang), 'error');
+            setConnectionError(pickServerText(data.message, lang));
             ws.close();
             break;
           }
@@ -288,12 +291,14 @@ function App() {
 
       ws.onerror = (err) => {
         console.error('WebSocket encountered an error', err);
+        setConnectionError(t('mp.serverError'));
         resetSocketMatch();
       };
 
       setSocket(ws);
     } catch (e) {
       console.error('Failed to initiate socket connection', e);
+      setConnectionError(t('mp.serverError'));
       resetSocketMatch();
     }
   };
@@ -415,6 +420,7 @@ function App() {
             onSendRestart={sendRestartRequest}
             onSendRestartConfirm={sendRestartConfirm}
             opponentWantsRestart={opponentWantsRestart}
+            connectionError={connectionError}
           />
         )}
       </main>

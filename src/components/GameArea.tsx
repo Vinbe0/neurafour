@@ -37,6 +37,7 @@ interface GameAreaProps {
   onSendRestart: () => void;
   onSendRestartConfirm: () => void;
   opponentWantsRestart: boolean;
+  connectionError: string | null;
 }
 
 interface HistoryStep {
@@ -85,6 +86,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
   onSendRestart,
   onSendRestartConfirm,
   opponentWantsRestart,
+  connectionError,
 }) => {
   const { t } = useI18n();
   const notify = useToast();
@@ -511,6 +513,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
           onConnectWebSocket={onConnectWebSocket}
           onSendChatMessage={onSendChatMessage}
           onLeaveLobby={onLeaveLobby}
+          connectionError={connectionError}
         />
       ) : (
         renderMatchBoard()

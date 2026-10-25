@@ -13,6 +13,7 @@ interface LobbyProps {
   onConnectWebSocket: (roomCode: string | null, action: 'create' | 'join') => void;
   onSendChatMessage: (text: string) => void;
   onLeaveLobby: () => void;
+  connectionError: string | null;
 }
 
 export const Lobby: React.FC<LobbyProps> = ({
@@ -24,6 +25,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   onConnectWebSocket,
   onSendChatMessage,
   onLeaveLobby,
+  connectionError,
 }) => {
   const { t } = useI18n();
   const [inputCode, setInputCode] = useState('');
@@ -61,12 +63,12 @@ export const Lobby: React.FC<LobbyProps> = ({
     onConnectWebSocket(inputCode.trim().toUpperCase(), 'join');
   };
 
-  // Turn off spinner when room details arrive
+  // Turn off spinner when room details arrive or the connection fails
   useEffect(() => {
-    if (roomCode) {
+    if (roomCode || connectionError) {
       setConnecting(false);
     }
-  }, [roomCode]);
+  }, [roomCode, connectionError]);
 
   const handleCopyLink = () => {
     playClick();
@@ -145,6 +147,13 @@ export const Lobby: React.FC<LobbyProps> = ({
                 </form>
               </div>
 
+            </div>
+          )}
+
+          {connectionError && !connecting && (
+            <div className="lobby-error" role="alert">
+              <ShieldAlert size={14} />
+              <span>{connectionError}</span>
             </div>
           )}
 

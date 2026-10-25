@@ -2232,6 +2232,21 @@ h1, h2, h3, h4, h5, h6, .display-font {
   gap: 20px;
 }
 
+.lobby-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 620px;
+  margin: 24px auto 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.1);
+  color: var(--accent-pink);
+  font-size: 0.82rem;
+}
+
 /* PRO modal */
 .pro-modal {
   border: 1px solid var(--accent-gold);
