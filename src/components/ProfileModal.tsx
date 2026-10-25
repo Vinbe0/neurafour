@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle, Coins, Flame, History, LogIn, LogOut, MapPin, Save, ShieldAlert, Trophy, User, X } from 'lucide-react';
 import type { UserProfile, MatchHistoryItem } from '../types';
 import { playClick } from '../sound';
+import { useI18n } from '../i18n';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onOpenAuth,
   onSignOut,
 }) => {
+  const { t } = useI18n();
   const [username, setUsername] = useState(profile.username);
   const [city, setCity] = useState(profile.city);
   const [avatar, setAvatar] = useState(profile.avatar);
@@ -53,70 +55,70 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   return (
     <div className="modal-overlay">
       <div className="modal-content account-modal glass-panel">
-        <button className="modal-close" onClick={() => { playClick(); onClose(); }} aria-label="Закрыть профиль">
+        <button className="modal-close" onClick={() => { playClick(); onClose(); }} aria-label={t('auth.close')}>
           <X size={20} />
         </button>
 
         <section className="account-hero">
           <div className="account-avatar-preview">{avatar}</div>
           <div className="account-identity">
-            <span className="account-kicker">Аккаунт игрока</span>
+            <span className="account-kicker">{t('profile.kicker')}</span>
             <h2>{username || profile.username}</h2>
             <div className="account-meta">
               <span><MapPin size={14} /> {city}</span>
               <span><Coins size={14} /> {profile.points} CP</span>
-              <span className={profile.isPro ? 'pro-active' : ''}>{profile.isPro ? 'PRO active' : 'Free plan'}</span>
+              <span className={profile.isPro ? 'pro-active' : ''}>{profile.isPro ? t('profile.proActive') : t('profile.free')}</span>
             </div>
           </div>
         </section>
 
         <section className={`account-auth-card ${accountEmail ? 'signed-in' : 'guest'}`}>
           <div>
-            <strong>{accountEmail ? 'Аккаунт подключен' : 'Гостевой режим'}</strong>
+            <strong>{accountEmail ? t('profile.connected') : t('profile.guestMode')}</strong>
             <span>
               {accountEmail
-                ? `${accountEmail} · прогресс синхронизируется с Supabase`
-                : 'Создайте аккаунт, чтобы попасть в реальный глобальный рейтинг и сохранить прогресс.'}
+                ? t('profile.synced', { email: accountEmail })
+                : t('profile.guestBody')}
             </span>
           </div>
           {accountEmail ? (
             <button onClick={onSignOut}>
               <LogOut size={15} />
-              Выйти
+              {t('profile.signOut')}
             </button>
           ) : (
             <button onClick={() => { playClick(); onOpenAuth(); }}>
               <LogIn size={15} />
-              Войти
+              {t('header.signIn')}
             </button>
           )}
         </section>
 
         <section className="account-level-card">
           <div>
-            <span>Уровень {playerLevel}</span>
-            <strong>{nextLevelAt - profile.points > 0 ? `${nextLevelAt - profile.points} CP до следующего уровня` : 'Новый уровень доступен'}</strong>
+            <span>{t('profile.level', { n: playerLevel })}</span>
+            <strong>{nextLevelAt - profile.points > 0 ? t('profile.toNext', { cp: nextLevelAt - profile.points }) : t('profile.levelUp')}</strong>
           </div>
-          <div className="account-progress" aria-label={`Прогресс уровня ${levelProgress}%`}>
+          <div className="account-progress" aria-label={`${levelProgress}%`}>
             <span style={{ width: `${levelProgress}%` }} />
           </div>
         </section>
 
         <section className="account-grid">
           <div className="account-edit-card">
-            <h3><User size={17} /> Настройки</h3>
+            <h3><User size={17} /> {t('profile.settings')}</h3>
 
-            <label className="cyber-label">Никнейм</label>
+            <label className="cyber-label">{t('profile.nickname')}</label>
             <input
               type="text"
               className="cyber-input"
               value={username}
               maxLength={18}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Введите никнейм"
+              placeholder={t('profile.nicknamePlaceholder')}
             />
 
-            <label className="cyber-label">Город для рейтинга</label>
+            <label className="cyber-label">{t('profile.city')}</label>
             <select
               className="cyber-input"
               value={city}
@@ -129,14 +131,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               ))}
             </select>
 
-            <label className="cyber-label">Аватар</label>
+            <label className="cyber-label">{t('profile.avatar')}</label>
             <div className="avatar-grid">
               {AVATARS.map((av) => (
                 <button
                   key={av}
                   className={avatar === av ? 'selected' : ''}
                   onClick={() => { playClick(); setAvatar(av); }}
-                  aria-label={`Выбрать аватар ${av}`}
+                  aria-label={`${t('profile.avatar')} ${av}`}
                 >
                   {av}
                 </button>
@@ -145,34 +147,34 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
 
           <div className="account-stats-card">
-            <h3><Trophy size={17} /> Статистика</h3>
+            <h3><Trophy size={17} /> {t('profile.stats')}</h3>
             <div className="account-stats-grid">
-              <StatTile icon={<History size={17} />} label="Матчи" value={totalMatches} />
-              <StatTile icon={<CheckCircle size={17} />} label="Победы" value={profile.stats.wins} tone="good" />
-              <StatTile icon={<ShieldAlert size={17} />} label="Поражения" value={profile.stats.losses} tone="bad" />
-              <StatTile icon={<Flame size={17} />} label="Винрейт" value={`${winRate}%`} tone="gold" />
+              <StatTile icon={<History size={17} />} label={t('profile.matches')} value={totalMatches} />
+              <StatTile icon={<CheckCircle size={17} />} label={t('profile.wins')} value={profile.stats.wins} tone="good" />
+              <StatTile icon={<ShieldAlert size={17} />} label={t('profile.losses')} value={profile.stats.losses} tone="bad" />
+              <StatTile icon={<Flame size={17} />} label={t('profile.winRate')} value={`${winRate}%`} tone="gold" />
             </div>
           </div>
         </section>
 
         <section className="account-history-card">
           <div className="account-section-title">
-            <h3>История матчей</h3>
-            <span>{matchHistory.length ? `Последние ${matchHistory.length}` : 'Пока пусто'}</span>
+            <h3>{t('profile.history')}</h3>
+            <span>{matchHistory.length ? t('profile.lastN', { n: matchHistory.length }) : t('profile.empty')}</span>
           </div>
 
           <div className="contained-scroll match-history-list">
             {matchHistory.length === 0 ? (
               <div className="empty-history">
-                Сыграйте матч против ИИ или друга, чтобы здесь появилась динамика прогресса.
+                {t('profile.emptyBody')}
               </div>
             ) : (
               matchHistory.map((match) => (
                 <article key={match.id} className={`history-row ${match.result}`}>
                   <div>
-                    <strong>{match.result === 'win' ? 'Победа' : match.result === 'loss' ? 'Поражение' : 'Ничья'}</strong>
+                    <strong>{match.result === 'win' ? t('profile.win') : match.result === 'loss' ? t('profile.loss') : t('profile.draw')}</strong>
                     <span>
-                      {match.mode === 'ai' ? `ИИ (${match.difficulty})` : match.mode === 'local' ? 'Локальная игра' : 'Мультиплеер'} · {match.opponent}
+                      {match.mode === 'ai' ? `${t('player.ai')} · ${t(`settings.${match.difficulty ?? 'medium'}`)}` : `${match.mode === 'local' ? t('profile.modeLocal') : t('profile.modeOnline')} · ${match.opponent}`}
                     </span>
                   </div>
                   <div>
@@ -187,7 +189,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
         <button className="glass-button active account-save" onClick={handleSave}>
           <Save size={16} />
-          Сохранить профиль
+          {t('profile.save')}
         </button>
       </div>
     </div>

@@ -12,9 +12,19 @@ import { playClick, playAlert, playUnlock, setMuted } from './sound';
 import { fetchProfileFromSupabase, saveMatchToSupabase, syncProfileToSupabase } from './services/database';
 import { supabase } from './utils/supabase';
 import type { Session } from '@supabase/supabase-js';
+import { CodeXml } from 'lucide-react';
+import { useI18n } from './i18n';
+import type { Lang } from './i18n';
+import { useToast } from './toast';
 
 const STORAGE_PROFILE_KEY = 'neurafour_user_profile_v2';
 const STORAGE_HISTORY_KEY = 'neurafour_match_history_v2';
+
+// Server messages are sent as "Russian / English"; show the half that matches the UI language
+const pickServerText = (message: string, lang: Lang) => {
+  const [ru, en] = message.split(' / ');
+  return (lang === 'ru' ? ru : en ?? ru).trim();
+};
 
 const DEFAULT_PROFILE: UserProfile = {
   username: 'NetRunner_1',
@@ -32,6 +42,9 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 function App() {
+  const { t, lang } = useI18n();
+  const notify = useToast();
+
   // Profiles & Stats state
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const profileRef = useRef<UserProfile>(DEFAULT_PROFILE);
@@ -60,6 +73,7 @@ function App() {
   const [opponent, setOpponent] = useState<{ username: string; avatar: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [opponentWantsRestart, setOpponentWantsRestart] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Load profile progress from LocalStorage on launch
   useEffect(() => {
@@ -186,6 +200,7 @@ function App() {
   // ----------------------------------------------------
 
   const connectWebSocket = (customCode: string | null, action: 'create' | 'join') => {
+    setConnectionError(null);
     try {
       // Use the hosted server when configured, otherwise the local one on port 5001
       const wsUrl = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:5001`;
@@ -237,7 +252,7 @@ function App() {
 
           case 'opponent_left': {
             playAlert();
-            alert(`Связь потеряна: ${data.message}`);
+            notify(pickServerText(data.message, lang), 'error');
             // Graceful network exit reset
             resetSocketMatch();
             break;
@@ -261,7 +276,8 @@ function App() {
 
           case 'error': {
             playAlert();
-            alert(`Ошибка сети: ${data.message}`);
+            notify(pickServerText(data.message, lang), 'error');
+            setConnectionError(pickServerText(data.message, lang));
             ws.close();
             break;
           }
@@ -275,12 +291,14 @@ function App() {
 
       ws.onerror = (err) => {
         console.error('WebSocket encountered an error', err);
+        setConnectionError(t('mp.serverError'));
         resetSocketMatch();
       };
 
       setSocket(ws);
     } catch (e) {
       console.error('Failed to initiate socket connection', e);
+      setConnectionError(t('mp.serverError'));
       resetSocketMatch();
     }
   };
@@ -318,7 +336,7 @@ function App() {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'restart_request' }));
       playClick();
-      alert('Запрос на перезапуск отправлен сопернику / Restart request sent.');
+      notify(t('mp.restartSent'), 'success');
     }
   };
 
@@ -402,6 +420,7 @@ function App() {
             onSendRestart={sendRestartRequest}
             onSendRestartConfirm={sendRestartConfirm}
             opponentWantsRestart={opponentWantsRestart}
+            connectionError={connectionError}
           />
         )}
       </main>
@@ -446,16 +465,12 @@ function App() {
       />
 
       {/* Footer bar */}
-      <footer style={{
-        textAlign: 'center',
-        padding: '20px',
-        fontSize: '0.75rem',
-        color: 'var(--text-secondary)',
-        fontFamily: 'var(--font-display)',
-        borderTop: '1px solid rgba(255,255,255,0.02)',
-        background: 'rgba(5, 2, 12, 0.4)'
-      }}>
-        © 2026 NEURAFOUR ARENA • SECURED CHANNEL • ALL RIGHTS RESERVED
+      <footer className="app-footer">
+        <span>{t('footer.text')}</span>
+        <a href="https://github.com/Vinbe0/neurafour" target="_blank" rel="noreferrer">
+          <CodeXml size={14} />
+          {t('footer.source')}
+        </a>
       </footer>
 
     </div>

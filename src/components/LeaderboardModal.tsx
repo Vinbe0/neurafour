@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { X, Trophy, MapPin, Search, Crown, Database } from 'lucide-react';
 import type { UserProfile, LeaderboardItem } from '../types';
 import { playClick } from '../sound';
+import { useI18n } from '../i18n';
 import { fetchLeaderboardFromSupabase, syncProfileToSupabase } from '../services/database';
 
 interface LeaderboardModalProps {
@@ -17,6 +18,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   profile,
   accountUserId,
 }) => {
+  const { t } = useI18n();
   const [selectedCity, setSelectedCity] = useState('Global');
   const [searchQuery, setSearchQuery] = useState('');
   const [remoteLeaderboard, setRemoteLeaderboard] = useState<LeaderboardItem[]>([]);
@@ -100,7 +102,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   return (
     <div className="modal-overlay">
       <div className="modal-content glass-panel" style={{ border: '1px solid var(--accent-cyan)', maxWidth: '620px' }}>
-        <button className="modal-close" onClick={() => { playClick(); onClose(); }}>
+        <button className="modal-close" onClick={() => { playClick(); onClose(); }} aria-label={t('auth.close')}>
           <X size={20} />
         </button>
 
@@ -108,10 +110,10 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           <Trophy className="neon-text-cyan" size={30} style={{ animation: 'blink-glow 2s infinite' }} />
           <div>
             <h2 className="display-font" style={{ fontSize: '1.6rem', color: 'var(--accent-cyan)' }}>
-              ТАБЛИЦА ЛИДЕРОВ / LEADERBOARD
+              {t('lb.title')}
             </h2>
             <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-secondary)' }}>
-              Top strategy hackers around the world
+              {t('lb.subtitle')}
             </span>
           </div>
         </div>
@@ -120,10 +122,10 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           <Database size={14} />
           <span>
             {isLoading
-              ? 'Загрузка реального рейтинга из Supabase...'
+              ? t('lb.loading')
               : isLive
-              ? 'Live Supabase рейтинг: данные читаются из таблицы profiles.'
-              : 'Supabase подключен в коде. Создайте таблицы из README, чтобы рейтинг стал глобальным.'}
+              ? t('lb.live')
+              : t('lb.offline')}
           </span>
         </div>
 
@@ -133,7 +135,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
             <input
               type="text"
-              placeholder="Поиск хакера... / Search..."
+              placeholder={t('lb.search')}
               className="cyber-input"
               style={{ paddingLeft: '36px' }}
               value={searchQuery}
@@ -149,8 +151,8 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               style={{ cursor: 'pointer' }}
             >
               {uniqueCities.map((c) => (
-                <option key={c} value={c} style={{ background: '#150b2b' }}>
-                  {c === 'Global' ? '🌍 Глобальный / Global' : c}
+                <option key={c} value={c}>
+                  {c === 'Global' ? t('lb.global') : c}
                 </option>
               ))}
             </select>
@@ -182,7 +184,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             </div>
           </div>
           <div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', textAlign: 'right' }}>Ваш ранг / Your Score</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', textAlign: 'right' }}>{t('lb.yourScore')}</span>
             <span className="display-font" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>
               {profile.points} <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>CP</span>
             </span>
@@ -270,7 +272,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           })}
           {!isLoading && filteredList.length === 0 && (
             <div style={{ padding: '18px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              Игроки не найдены.
+              {t('lb.none')}
             </div>
           )}
         </div>

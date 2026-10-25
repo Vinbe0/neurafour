@@ -1,7 +1,8 @@
 import React from 'react';
-import { Brain, Coins, Crown, LogIn, Volume2, VolumeX, Sun, Moon, Trophy, ShoppingBag } from 'lucide-react';
+import { Brain, Coins, Crown, LogIn, Volume2, VolumeX, Sun, Moon, Trophy, ShoppingBag, Gamepad2, Languages } from 'lucide-react';
 import type { UserProfile } from '../types';
 import { playClick } from '../sound';
+import { useI18n } from '../i18n';
 
 interface HeaderProps {
   profile: UserProfile;
@@ -34,6 +35,8 @@ export const Header: React.FC<HeaderProps> = ({
   setTheme,
   accountEmail,
 }) => {
+  const { t, lang, setLang } = useI18n();
+
   const toggleMuted = () => {
     playClick();
     setIsMuted(!isMuted);
@@ -46,6 +49,11 @@ export const Header: React.FC<HeaderProps> = ({
     document.documentElement.setAttribute('data-theme', newTheme);
   };
 
+  const toggleLang = () => {
+    playClick();
+    setLang(lang === 'en' ? 'ru' : 'en');
+  };
+
   const handleTabClick = (tab: string) => {
     playClick();
     setActiveTab(tab);
@@ -54,14 +62,14 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="app-header glass-panel">
       {/* Brand Logo */}
-      <button className="header-brand" onClick={() => handleTabClick('game')} aria-label="Открыть игру">
+      <button className="header-brand" onClick={() => handleTabClick('game')} aria-label={t('header.openGame')}>
         <Brain className="brand-icon" size={32} />
         <div>
           <h1 className="display-font">
             NEURAFOUR
           </h1>
           <span>
-            AI Strategy Arena
+            {t('header.tagline')}
           </span>
         </div>
       </button>
@@ -72,21 +80,22 @@ export const Header: React.FC<HeaderProps> = ({
           className={`glass-button ${activeTab === 'game' ? 'active' : ''}`}
           onClick={() => handleTabClick('game')}
         >
-          Игра / Play
+          <Gamepad2 size={14} />
+          <span className="display-font">{t('nav.play')}</span>
         </button>
         <button
           className="glass-button"
           onClick={onOpenLeaderboard}
         >
           <Trophy size={14} className="neon-text-cyan" />
-          <span className="display-font">Рейтинг</span>
+          <span className="display-font">{t('nav.leaderboard')}</span>
         </button>
         <button
           className="glass-button"
           onClick={onOpenShop}
         >
           <ShoppingBag size={14} className="neon-text-pink" />
-          <span className="display-font">Магазин</span>
+          <span className="display-font">{t('nav.shop')}</span>
         </button>
       </nav>
 
@@ -113,7 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenPro}
           >
             <Crown size={12} className="neon-text-pink" />
-            <span>UPGRADE</span>
+            <span>{t('header.upgrade')}</span>
           </button>
         )}
 
@@ -123,7 +132,8 @@ export const Header: React.FC<HeaderProps> = ({
           <button 
             className="glass-button icon-button" 
             onClick={toggleMuted}
-            title={isMuted ? 'Включить звук' : 'Выключить звук'}
+            title={isMuted ? t('header.unmute') : t('header.mute')}
+            aria-label={isMuted ? t('header.unmute') : t('header.mute')}
           >
             {isMuted ? <VolumeX size={16} className="neon-text-pink" /> : <Volume2 size={16} className="neon-text-cyan" />}
           </button>
@@ -132,9 +142,21 @@ export const Header: React.FC<HeaderProps> = ({
           <button 
             className="glass-button icon-button" 
             onClick={toggleTheme}
-            title={theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
+            title={theme === 'dark' ? t('header.lightTheme') : t('header.darkTheme')}
+            aria-label={theme === 'dark' ? t('header.lightTheme') : t('header.darkTheme')}
           >
             {theme === 'dark' ? <Sun size={16} className="neon-text-cyan" /> : <Moon size={16} className="neon-text-pink" />}
+          </button>
+
+          {/* Language toggle */}
+          <button
+            className="glass-button lang-button"
+            onClick={toggleLang}
+            title={t('header.language')}
+            aria-label={t('header.language')}
+          >
+            <Languages size={14} />
+            <span>{lang === 'en' ? 'RU' : 'EN'}</span>
           </button>
         </div>
 
@@ -142,10 +164,10 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             className="glass-button auth-nav-button"
             onClick={() => { playClick(); onOpenAuth(); }}
-            title="Войти или создать аккаунт"
+            title={t('header.signInTitle')}
           >
             <LogIn size={14} />
-            <span>Войти</span>
+            <span>{t('header.signIn')}</span>
           </button>
         )}
 
@@ -153,7 +175,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button 
           onClick={onOpenProfile}
           className="header-profile tooltip"
-          data-tooltip={accountEmail ? accountEmail : 'Гостевой профиль / Guest profile'}
+          data-tooltip={accountEmail ? accountEmail : t('header.guest')}
         >
           <div className={profile.isPro ? 'profile-avatar pro' : 'profile-avatar'}>
             {profile.avatar}

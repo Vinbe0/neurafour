@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain } from 'lucide-react';
+import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain, Undo2, Keyboard, ListOrdered } from 'lucide-react';
 import type { BoardType, PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
 import {
   createEmptyBoard,
@@ -14,6 +14,8 @@ import {
 } from '../ai';
 import { playClick, playChipDrop, playWin, playLoss, playAlert } from '../sound';
 import { Lobby } from './Lobby';
+import { useI18n } from '../i18n';
+import { useToast } from '../toast';
 
 interface GameAreaProps {
   profile: UserProfile;
@@ -35,7 +37,37 @@ interface GameAreaProps {
   onSendRestart: () => void;
   onSendRestartConfirm: () => void;
   opponentWantsRestart: boolean;
+  connectionError: string | null;
 }
+
+interface HistoryStep {
+  player: PlayerType;
+  column: number;
+  boardBefore: BoardType;
+  boardAfter: BoardType;
+}
+
+const DIFFICULTIES: AIDifficulty[] = ['easy', 'medium', 'hard'];
+
+interface ConfettiParticle {
+  x: number;
+  y: number;
+  r: number;
+  color: string;
+  tilt: number;
+  tiltAngleIncremental: number;
+  tiltAngle: number;
+}
+
+const makeConfettiParticle = (width: number, height: number): ConfettiParticle => ({
+  x: Math.random() * width,
+  y: Math.random() * height - height,
+  r: Math.random() * 6 + 4,
+  color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+  tilt: Math.random() * 10 - 5,
+  tiltAngleIncremental: Math.random() * 0.07 + 0.02,
+  tiltAngle: 0,
+});
 
 export const GameArea: React.FC<GameAreaProps> = ({
   profile,
@@ -54,10 +86,15 @@ export const GameArea: React.FC<GameAreaProps> = ({
   onSendRestart,
   onSendRestartConfirm,
   opponentWantsRestart,
+  connectionError,
 }) => {
+  const { t } = useI18n();
+  const notify = useToast();
+
   // Gameplay States
   const [gameMode, setGameMode] = useState<GameMode>('ai');
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
+  const [aiFirst, setAiFirst] = useState(false);
   const [board, setBoard] = useState<BoardType>(createEmptyBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerType>('red');
   const [winner, setWinner] = useState<PlayerType | null>(null);
@@ -66,37 +103,19 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [hintColumn, setHintColumn] = useState<number | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
+  // Bumped on every reset so a pending AI move from an old game is ignored
+  const [gameId, setGameId] = useState(0);
+  const gameIdRef = useRef(0);
 
-  // Turn History (for Coach post-game evaluation)
-  const [gameHistory, setGameHistory] = useState<{
-    player: PlayerType;
-    column: number;
-    boardBefore: BoardType;
-    boardAfter: BoardType;
-  }[]>([]);
+  // Turn History (for Coach post-game evaluation, undo and the move list)
+  const [gameHistory, setGameHistory] = useState<HistoryStep[]>([]);
+  const moveListRef = useRef<HTMLOListElement | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const confettiParticles = useRef<{
-    x: number;
-    y: number;
-    r: number;
-    d: number;
-    color: string;
-    tilt: number;
-    tiltAngleIncremental: number;
-    tiltAngle: number;
-  }[]>([]);
+  const confettiParticles = useRef<ConfettiParticle[]>([]);
   const confettiAnimId = useRef<number | null>(null);
 
-  // Sync board state if in WebSocket Multiplayer mode
-  // The server handles turns and alerts us of moves made
-  // We mirror the server boards here
-  useEffect(() => {
-    if (gameMode === 'multiplayer' && roomCode) {
-      // Game started, reset local board if restarted by server
-      // State is managed by server messages arriving
-    }
-  }, [roomCode]);
+  const isGameOver = !!winner || isDraw;
 
   // Canvas Confetti Win Celebration
   const startConfetti = () => {
@@ -104,23 +123,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    confettiParticles.current = [];
-    for (let i = 0; i < 150; i++) {
-      confettiParticles.current.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height - canvas.height,
-        r: Math.random() * 6 + 4,
-        d: Math.random() * canvas.height,
-        color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-        tilt: Math.random() * 10 - 5,
-        tiltAngleIncremental: Math.random() * 0.07 + 0.02,
-        tiltAngle: 0
-      });
-    }
+    confettiParticles.current = Array.from({ length: 150 }, () => makeConfettiParticle(canvas.width, canvas.height));
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -138,18 +146,15 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
         // Recycle particles falling off-screen
         if (p.y > canvas.height) {
-          confettiParticles.current[idx] = {
-            ...p,
-            x: Math.random() * canvas.width,
-            y: -20,
-            tilt: Math.random() * 10 - 5
-          };
+          confettiParticles.current[idx] = { ...makeConfettiParticle(canvas.width, canvas.height), y: -20 };
         }
       });
       confettiAnimId.current = requestAnimationFrame(draw);
     };
 
     draw();
+    // Stop on its own so it never runs forever in the background
+    setTimeout(stopConfetti, 5000);
   };
 
   const stopConfetti = () => {
@@ -173,20 +178,31 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
   // AI Turn Execution
   useEffect(() => {
-    if (gameMode !== 'ai' || currentPlayer !== 'yellow' || winner || isDraw || isAiThinking) return;
+    if (gameMode !== 'ai' || currentPlayer !== 'yellow' || winner || isDraw) return;
 
+    const startedIn = gameIdRef.current;
     setIsAiThinking(true);
-    // Add artificial cyber delay to make the AI feel authentic
-    const delay = Math.random() * 600 + 400; 
+    // Short delay so the AI move is easy to follow
+    const delay = Math.random() * 500 + 350;
 
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      if (startedIn !== gameIdRef.current) return;
       const bestCol = getBestMove(board, difficulty, 'yellow');
       if (bestCol !== -1) {
         executeMove(bestCol, 'yellow');
       }
       setIsAiThinking(false);
     }, delay);
-  }, [currentPlayer, gameMode, winner, isDraw]);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPlayer, gameMode, winner, isDraw, gameId]);
+
+  // Keep the newest move visible in the move list
+  useEffect(() => {
+    const list = moveListRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [gameHistory.length]);
 
   // Execute standard column drop
   const executeMove = (col: number, player: PlayerType) => {
@@ -226,104 +242,58 @@ export const GameArea: React.FC<GameAreaProps> = ({
     }
   };
 
+  const recordMatch = (result: MatchHistoryItem['result'], pointsEarned: number, opponentName: string) => {
+    const statKey = result === 'win' ? 'wins' : result === 'loss' ? 'losses' : 'draws';
+    onUpdateProfile({
+      points: profile.points + pointsEarned,
+      stats: { ...profile.stats, [statKey]: profile.stats[statKey] + 1 },
+    });
+    onAddMatchHistory({
+      id: Date.now().toString(),
+      date: new Date().toLocaleDateString(),
+      opponent: opponentName,
+      mode: gameMode,
+      difficulty: gameMode === 'ai' ? difficulty : undefined,
+      result,
+      pointsEarned,
+    });
+  };
+
   // Connect Four game-over reward system
   const handleGameEnd = (gameWinner: PlayerType | null) => {
-    if (gameWinner) {
-      if (gameMode === 'local') {
-        playWin();
-      } else if (gameMode === 'ai') {
-        if (gameWinner === 'red') {
-          // Won vs AI
-          playWin();
-          startConfetti();
-          const bonus = difficulty === 'easy' ? 10 : difficulty === 'medium' ? 20 : 50;
-          onUpdateProfile({ 
-            points: profile.points + bonus,
-            stats: { ...profile.stats, wins: profile.stats.wins + 1 }
-          });
-          onAddMatchHistory({
-            id: Date.now().toString(),
-            date: new Date().toLocaleDateString(),
-            opponent: `ИИ / AI (${difficulty})`,
-            mode: 'ai',
-            difficulty,
-            result: 'win',
-            pointsEarned: bonus
-          });
-        } else {
-          // Lost vs AI
-          playLoss();
-          onUpdateProfile({
-            points: profile.points + 5, // Consolidation points
-            stats: { ...profile.stats, losses: profile.stats.losses + 1 }
-          });
-          onAddMatchHistory({
-            id: Date.now().toString(),
-            date: new Date().toLocaleDateString(),
-            opponent: `ИИ / AI (${difficulty})`,
-            mode: 'ai',
-            difficulty,
-            result: 'loss',
-            pointsEarned: 5
-          });
-        }
-      } else if (gameMode === 'multiplayer') {
-        const isMyWin = (side === 'red' && gameWinner === 'red') || (side === 'yellow' && gameWinner === 'yellow');
-        if (isMyWin) {
-          playWin();
-          startConfetti();
-          onUpdateProfile({ 
-            points: profile.points + 40,
-            stats: { ...profile.stats, wins: profile.stats.wins + 1 }
-          });
-          onAddMatchHistory({
-            id: Date.now().toString(),
-            date: new Date().toLocaleDateString(),
-            opponent: opponent?.username || 'Сетевой боец',
-            mode: 'multiplayer',
-            result: 'win',
-            pointsEarned: 40
-          });
-        } else {
-          playLoss();
-          onUpdateProfile({
-            points: profile.points + 10,
-            stats: { ...profile.stats, losses: profile.stats.losses + 1 }
-          });
-          onAddMatchHistory({
-            id: Date.now().toString(),
-            date: new Date().toLocaleDateString(),
-            opponent: opponent?.username || 'Сетевой боец',
-            mode: 'multiplayer',
-            result: 'loss',
-            pointsEarned: 10
-          });
-        }
-      }
-    } else {
-      // Draw outcome
+    const aiName = `AI (${difficulty})`;
+    const onlineName = opponent?.username || t('player.opponent');
+
+    if (!gameWinner) {
       playAlert();
-      onUpdateProfile({ 
-        points: profile.points + 8,
-        stats: { ...profile.stats, draws: profile.stats.draws + 1 }
-      });
-      onAddMatchHistory({
-        id: Date.now().toString(),
-        date: new Date().toLocaleDateString(),
-        opponent: gameMode === 'ai' ? `ИИ / AI (${difficulty})` : gameMode === 'local' ? 'Локальный' : (opponent?.username || 'Сетевой боец'),
-        mode: gameMode,
-        result: 'draw',
-        pointsEarned: 8
-      });
+      recordMatch('draw', 8, gameMode === 'ai' ? aiName : gameMode === 'local' ? t('player.localOpponent') : onlineName);
+      return;
+    }
+
+    if (gameMode === 'local') {
+      playWin();
+      return;
+    }
+
+    const isMyWin = gameMode === 'ai' ? gameWinner === 'red' : gameWinner === side;
+    if (isMyWin) {
+      playWin();
+      startConfetti();
+      const bonus = gameMode === 'multiplayer' ? 40 : difficulty === 'easy' ? 10 : difficulty === 'medium' ? 20 : 50;
+      recordMatch('win', bonus, gameMode === 'ai' ? aiName : onlineName);
+    } else {
+      playLoss();
+      // Consolation points
+      recordMatch('loss', gameMode === 'multiplayer' ? 10 : 5, gameMode === 'ai' ? aiName : onlineName);
     }
   };
 
   // User click on a column
   const handleColumnClick = (col: number) => {
-    if (winner || isDraw || isAiThinking) return;
+    if (isGameOver || isAiThinking) return;
 
-    // In local or AI mode, check if column is available
     if (gameMode !== 'multiplayer') {
+      if (gameMode === 'ai' && currentPlayer !== 'red') return;
       if (!isColumnAvailable(board, col)) {
         playAlert();
         return;
@@ -343,12 +313,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
       const handleServerMessage = (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data);
-          
+
           if (data.type === 'move_made') {
             // Apply move made by either me or opponent
             const { column, player } = data;
             const row = getAvailableRow(board, column);
-            
+
             if (row !== -1) {
               const boardBefore = JSON.parse(JSON.stringify(board));
               const updatedBoard = [...board];
@@ -377,7 +347,6 @@ export const GameArea: React.FC<GameAreaProps> = ({
             }
           } else if (data.type === 'game_restarted') {
             resetLocalGame();
-            setCurrentPlayer('red');
           }
         } catch (err) {
           console.error(err);
@@ -389,6 +358,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
         socket.removeEventListener('message', handleServerMessage);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, board, gameMode, side]);
 
   // Restart match logic
@@ -402,24 +372,55 @@ export const GameArea: React.FC<GameAreaProps> = ({
     }
   };
 
-  const resetLocalGame = () => {
+  const resetLocalGame = (options: { mode?: GameMode; aiStarts?: boolean } = {}) => {
+    const mode = options.mode ?? gameMode;
+    const aiStarts = options.aiStarts ?? aiFirst;
     stopConfetti();
+    gameIdRef.current += 1;
+    setGameId(gameIdRef.current);
     setBoard(createEmptyBoard());
-    setCurrentPlayer('red');
+    setCurrentPlayer(mode === 'ai' && aiStarts ? 'yellow' : 'red');
     setWinner(null);
     setWinningCells([]);
     setIsDraw(false);
+    setIsAiThinking(false);
     setGameHistory([]);
+    setHintColumn(null);
+  };
+
+  const changeMode = (mode: GameMode) => {
+    playClick();
+    setGameMode(mode);
+    resetLocalGame({ mode });
+  };
+
+  // Undo: vs AI rewinds to before your last move (and the AI's reply), locally it removes one move
+  const undoTarget = (() => {
+    if (gameMode === 'multiplayer' || isGameOver || isAiThinking || gameHistory.length === 0) return -1;
+    if (gameMode === 'local') return gameHistory.length - 1;
+    for (let i = gameHistory.length - 1; i >= 0; i--) {
+      if (gameHistory[i].player === 'red') return i;
+    }
+    return -1;
+  })();
+
+  const handleUndo = () => {
+    if (undoTarget === -1) return;
+    playClick();
+    const step = gameHistory[undoTarget];
+    setBoard(step.boardBefore.map(row => [...row]));
+    setGameHistory(gameHistory.slice(0, undoTarget));
+    setCurrentPlayer(step.player);
     setHintColumn(null);
   };
 
   // Minimax tactical Hint
   const handleGetHint = () => {
-    if (winner || isDraw || isAiThinking) return;
+    if (isGameOver || isAiThinking) return;
 
     if (!profile.isPro) {
       if (profile.points < 15) {
-        alert('Недостаточно CyberPoints! Подсказка стоит 15 CP или перейдите на PRO.');
+        notify(t('controls.notEnoughHint'), 'error');
         return;
       }
       playClick();
@@ -445,66 +446,76 @@ export const GameArea: React.FC<GameAreaProps> = ({
     onOpenCoach(matchEvaluations);
   };
 
+  const canPlayNow = !isGameOver && !isAiThinking
+    && (gameMode === 'local' || (gameMode === 'ai' && currentPlayer === 'red') || (gameMode === 'multiplayer' && !!roomCode && currentPlayer === side));
+
+  // Keyboard controls: 1-7 drop, arrows + Enter/Space choose and drop, U undo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
+      if (document.querySelector('.modal-overlay')) return;
+      if (gameMode === 'multiplayer' && !roomCode) return;
+
+      if (e.key >= '1' && e.key <= String(COLS)) {
+        e.preventDefault();
+        handleColumnClick(Number(e.key) - 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const step = e.key === 'ArrowLeft' ? -1 : 1;
+        setHoveredCol(prev => (((prev ?? Math.floor(COLS / 2) - step) + step + COLS) % COLS));
+      } else if ((e.key === 'Enter' || e.key === ' ') && hoveredCol !== null && target?.tagName !== 'BUTTON') {
+        e.preventDefault();
+        handleColumnClick(hoveredCol);
+      } else if (e.key.toLowerCase() === 'u') {
+        handleUndo();
+      }
+    };
+
+    // Re-subscribed every render so the handler always sees the current board
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
+
   return (
-    <div style={{ padding: '0 20px 40px', position: 'relative' }}>
-      
+    <div className="game-page">
+
       {/* Confetti overlay */}
       <canvas ref={canvasRef} className="confetti-canvas" />
 
       {/* Mode Switches */}
-      <div className="glass-panel" style={{
-        display: 'flex',
-        justifyContent: 'center',
-        padding: '8px',
-        maxWidth: '520px',
-        margin: '0 auto 25px',
-        gap: '8px'
-      }}>
-        <button
-          className={`glass-button ${gameMode === 'ai' ? 'active' : ''}`}
-          onClick={() => { playClick(); setGameMode('ai'); resetLocalGame(); }}
-          style={{ flex: 1, fontSize: '0.75rem', padding: '10px' }}
-        >
-          <Bot size={14} />
-          <span>vs ИИ</span>
-        </button>
-        <button
-          className={`glass-button ${gameMode === 'local' ? 'active' : ''}`}
-          onClick={() => { playClick(); setGameMode('local'); resetLocalGame(); }}
-          style={{ flex: 1, fontSize: '0.75rem', padding: '10px' }}
-        >
-          <User size={14} />
-          <span>Локально</span>
-        </button>
-        <button
-          className={`glass-button ${gameMode === 'multiplayer' ? 'active' : ''}`}
-          onClick={() => { playClick(); setGameMode('multiplayer'); resetLocalGame(); }}
-          style={{ flex: 1, fontSize: '0.75rem', padding: '10px' }}
-        >
-          <Users size={14} />
-          <span>Сеть (1v1)</span>
-        </button>
+      <div className="mode-switch glass-panel" role="tablist">
+        {([
+          ['ai', <Bot size={15} key="ai" />, t('mode.ai')],
+          ['local', <User size={15} key="local" />, t('mode.local')],
+          ['multiplayer', <Users size={15} key="mp" />, t('mode.online')],
+        ] as const).map(([mode, icon, label]) => (
+          <button
+            key={mode}
+            role="tab"
+            aria-selected={gameMode === mode}
+            className={`glass-button ${gameMode === mode ? 'active' : ''}`}
+            onClick={() => changeMode(mode)}
+          >
+            {icon}
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
 
-      {gameMode === 'multiplayer' ? (
-        /* Render WebSocket Multiplayer Lobby manager if in multiplayer mode and lobby is inactive */
-        !roomCode ? (
-          <Lobby
-            profile={profile}
-            roomCode={roomCode}
-            side={side}
-            opponent={opponent}
-            chatHistory={chatHistory}
-            onConnectWebSocket={onConnectWebSocket}
-            onSendChatMessage={onSendChatMessage}
-            onLeaveLobby={onLeaveLobby}
-          />
-        ) : (
-          /* Render Active multiplayer match board interface */
-          renderMatchBoard()
-        )
+      {gameMode === 'multiplayer' && !roomCode ? (
+        <Lobby
+          profile={profile}
+          roomCode={roomCode}
+          side={side}
+          opponent={opponent}
+          chatHistory={chatHistory}
+          onConnectWebSocket={onConnectWebSocket}
+          onSendChatMessage={onSendChatMessage}
+          onLeaveLobby={onLeaveLobby}
+          connectionError={connectionError}
+        />
       ) : (
-        /* Local & AI boards */
         renderMatchBoard()
       )}
     </div>
@@ -519,63 +530,77 @@ export const GameArea: React.FC<GameAreaProps> = ({
     if (activeSkin === 'space-obsidian') skinClass = 'skin-obsidian';
     if (activeSkin === 'royal-gold') skinClass = 'skin-gold';
 
-    // Active color indicators
     const isRedTurn = currentPlayer === 'red';
-    
-    // Status text (in Russian and English)
+
+    // Names shown for each colour
+    const redPlayer = gameMode === 'multiplayer'
+      ? (side === 'red' ? { name: profile.username, avatar: profile.avatar } : { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || '🤖' })
+      : gameMode === 'local'
+      ? { name: t('player.red'), avatar: profile.avatar }
+      : { name: profile.username, avatar: profile.avatar };
+    const bluePlayer = gameMode === 'multiplayer'
+      ? (side === 'yellow' ? { name: profile.username, avatar: profile.avatar } : { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || '🤖' })
+      : gameMode === 'local'
+      ? { name: t('player.blue'), avatar: '👤' }
+      : { name: `${t('player.ai')} · ${t(`settings.${difficulty}`)}`, avatar: '🧠' };
+
     let statusText: string;
     if (winner) {
       if (gameMode === 'local') {
-        statusText = winner === 'red' ? 'ПОБЕДИЛИ КРАСНЫЕ! / RED WINS!' : 'ПОБЕДИЛИ СИНИЕ! / BLUE WINS!';
+        statusText = winner === 'red' ? t('status.redWins') : t('status.blueWins');
       } else if (gameMode === 'ai') {
-        statusText = winner === 'red' ? 'ВЫ ВЫИГРАЛИ! / YOU WIN!' : 'ИИ ВЫИГРАЛ! / AI WINS!';
+        statusText = winner === 'red' ? t('status.youWin') : t('status.aiWins');
       } else {
-        const isMyWin = (side === 'red' && winner === 'red') || (side === 'yellow' && winner === 'yellow');
-        statusText = isMyWin ? 'ВЫ ВЫИГРАЛИ! / YOU WIN!' : 'ОППОНЕНТ ВЫИГРАЛ! / OPPONENT WINS!';
+        statusText = winner === side ? t('status.youWin') : t('status.opponentWins');
       }
     } else if (isDraw) {
-      statusText = 'НИЧЬЯ / DRAW!';
+      statusText = t('status.draw');
     } else if (gameMode === 'ai') {
-      statusText = isRedTurn ? 'ВАШ ХОД / YOUR TURN' : 'ИИ ДУМАЕТ... / AI ANALYSIS...';
+      statusText = isRedTurn ? t('status.yourTurn') : t('status.aiThinking');
     } else if (gameMode === 'local') {
-      statusText = isRedTurn ? 'ХОД КРАСНЫХ / RED TURN' : 'ХОД СИНИХ / BLUE TURN';
+      statusText = isRedTurn ? t('status.redTurn') : t('status.blueTurn');
     } else {
-      const isMyTurn = currentPlayer === side;
-      statusText = isMyTurn ? 'ВАШ ХОД / YOUR TURN' : 'ХОД СОПЕРНИКА / OPPONENT TURN';
+      statusText = currentPlayer === side ? t('status.yourTurn') : t('status.opponentTurn');
     }
 
+    const statusTone = isDraw ? 'draw' : (winner ?? currentPlayer);
+    const previewCol = canPlayNow && hoveredCol !== null && isColumnAvailable(board, hoveredCol) ? hoveredCol : null;
+    const previewRow = previewCol !== null ? getAvailableRow(board, previewCol) : -1;
+    const lastMove = gameHistory[gameHistory.length - 1];
+
+    const playerName = (player: PlayerType) => (player === 'red' ? redPlayer.name : bluePlayer.name);
+
     return (
-      <div className="match-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '30px', maxWidth: '950px', margin: '0 auto', flexWrap: 'wrap' }}>
-        
+      <div className="match-layout">
+
         {/* Playable Connect Four Board area */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          
-          {/* Main game board */}
-          <div className="c4-board-wrapper">
-            <div className={`c4-board ${skinClass}`}>
-              
-              {/* Point hover indicators for each of 7 columns */}
+        <div className="board-column">
+
+          <div className={`c4-board-wrapper ${canPlayNow ? '' : 'board-waiting'}`}>
+            <div className={`c4-board ${skinClass}`} onMouseLeave={() => setHoveredCol(null)}>
+
+              {/* Column buttons: hover/focus target and screen-reader control */}
               {Array(COLS).fill(null).map((_, c) => (
-                <div
+                <button
                   key={`indicator-${c}`}
-                  className="column-indicator"
+                  className={`column-indicator ${hoveredCol === c ? 'is-active' : ''} ${hintColumn === c ? 'is-hint' : ''}`}
                   style={{
                     gridColumn: c + 1,
-                    // If AI recommends, point hint green, otherwise pink/cyan based on current turn
-                    '--indicator-color': hintColumn === c 
-                      ? 'var(--accent-green)' 
-                      : isRedTurn 
-                      ? 'var(--accent-pink)' 
+                    '--indicator-color': hintColumn === c
+                      ? 'var(--accent-green)'
+                      : isRedTurn
+                      ? 'var(--accent-pink)'
                       : 'var(--accent-cyan)'
                   } as React.CSSProperties}
+                  onClick={() => handleColumnClick(c)}
+                  onMouseEnter={() => setHoveredCol(c)}
+                  onFocus={() => setHoveredCol(c)}
+                  aria-label={t('moves.column', { col: c + 1 })}
+                  disabled={!isColumnAvailable(board, c)}
                 >
-                  <div className="column-indicator-circle" style={{
-                    opacity: hoveredCol === c || hintColumn === c ? 1 : 0,
-                    // AI Hint flashes green brightly
-                    border: hintColumn === c ? '3px solid var(--accent-green)' : undefined,
-                    boxShadow: hintColumn === c ? '0 0 15px var(--accent-green)' : undefined,
-                  }} />
-                </div>
+                  <span className="column-number">{c + 1}</span>
+                  <div className="column-indicator-circle" />
+                </button>
               ))}
 
               {/* Renders cells 6 rows, 7 cols */}
@@ -583,24 +608,24 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 Array(COLS).fill(null).map((_, c) => {
                   const cell = board[r][c];
                   const isWinning = winningCells.some(([wr, wc]) => wr === r && wc === c);
-                  
+                  const isLast = lastMove && !isGameOver && getAvailableRow(lastMove.boardBefore, lastMove.column) === r && lastMove.column === c;
+                  const isPreview = previewCol === c && previewRow === r;
+
                   return (
                     <div
                       key={`${r}-${c}`}
-                      className={`c4-cell ${isWinning ? 'winning-cell' : ''} ${hoveredCol === c ? 'c4-col-hovered' : ''}`}
+                      className={`c4-cell ${isWinning ? 'winning-cell' : ''} ${hoveredCol === c ? 'c4-col-hovered' : ''} ${isGameOver && !isWinning && winner ? 'dimmed' : ''}`}
                       style={{ gridRow: r + 2, gridColumn: c + 1 }}
                       onClick={() => handleColumnClick(c)}
                       onMouseEnter={() => setHoveredCol(c)}
-                      onMouseLeave={() => setHoveredCol(null)}
                     >
                       {cell && (
                         <div
-                          className={`c4-token ${cell}`}
-                          style={{
-                            '--drop-row': r // dynamic bounce landing height
-                          } as React.CSSProperties}
+                          className={`c4-token ${cell} ${isLast ? 'last-move' : ''}`}
+                          style={{ '--drop-row': r } as React.CSSProperties}
                         />
                       )}
+                      {!cell && isPreview && <div className={`c4-token ghost ${currentPlayer}`} />}
                     </div>
                   );
                 })
@@ -609,148 +634,153 @@ export const GameArea: React.FC<GameAreaProps> = ({
             </div>
           </div>
 
-          {/* Prompt options: Hint, restart */}
-          <div style={{ display: 'flex', gap: '15px', marginTop: '10px', width: '100%', justifyContent: 'center' }}>
+          {/* Controls: hint, undo, restart */}
+          <div className="board-controls">
             <button
-              className="glass-button"
+              className="glass-button hint-button"
               onClick={handleGetHint}
-              disabled={!!winner || isDraw || isAiThinking}
-              style={{
-                borderColor: 'rgba(57, 255, 20, 0.3)',
-                boxShadow: hintColumn !== null ? '0 0 10px var(--accent-green)' : 'none'
-              }}
-              title={profile.isPro ? 'Получить бесплатную ИИ-подсказку' : 'Подсказка ИИ (стоит 15 CP)'}
+              disabled={!canPlayNow}
+              title={profile.isPro ? t('controls.hintTitlePro') : t('controls.hintTitle')}
             >
-              <Lightbulb size={16} className="neon-text-cyan" style={{ color: 'var(--accent-green)', filter: 'drop-shadow(0 0 3px rgba(57,255,20,0.5))' }} />
-              <span className="display-font" style={{ fontSize: '0.8rem', color: 'var(--accent-green)' }}>
-                {profile.isPro ? 'Подсказка / Hint' : 'Подсказка (15 CP)'}
-              </span>
+              <Lightbulb size={15} />
+              <span>{profile.isPro ? t('controls.hint') : t('controls.hintCost')}</span>
             </button>
 
-            <button
-              className="glass-button"
-              onClick={handleRestart}
-              style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}
-            >
+            {gameMode !== 'multiplayer' && (
+              <button
+                className="glass-button"
+                onClick={handleUndo}
+                disabled={undoTarget === -1}
+                title={t('controls.undoTitle')}
+              >
+                <Undo2 size={15} />
+                <span>{t('controls.undo')}</span>
+              </button>
+            )}
+
+            <button className="glass-button" onClick={handleRestart}>
               <RefreshCw size={14} />
-              <span className="display-font" style={{ fontSize: '0.8rem' }}>Заново</span>
+              <span>{t('controls.restart')}</span>
             </button>
           </div>
 
+          <p className="keyboard-hint">
+            <Keyboard size={13} />
+            <span>{t('controls.keyboard')}</span>
+          </p>
         </div>
 
-        {/* Right Side: Turn Details & Match commentary log */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
+        {/* Right Side: status, settings, move list */}
+        <div className="side-column">
+
           {/* Turn status Card */}
-          <div className="glass-panel" style={{ padding: '25px', textAlign: 'center', minHeight: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.15em', display: 'block', marginBottom: '8px' }}>
-              Статус Арены / Arena Ledger
-            </span>
-            <h2 className="display-font" style={{
-              fontSize: '1.4rem',
-              fontWeight: 800,
-              color: winner 
-                ? (winner === 'red' ? 'var(--accent-pink)' : 'var(--accent-cyan)') 
-                : isRedTurn ? 'var(--accent-pink)' : 'var(--accent-cyan)',
-              textShadow: winner 
-                ? (winner === 'red' ? 'var(--glow-pink)' : 'var(--glow-cyan)') 
-                : isRedTurn ? 'var(--glow-pink)' : 'var(--glow-cyan)',
-              marginBottom: '15px'
-            }}>
+          <section className={`status-card glass-panel tone-${statusTone}`} aria-live="polite">
+            <span className="panel-label">{t('status.label')}</span>
+            <h2 className="status-title display-font">
               {statusText}
+              {isAiThinking && <span className="thinking-dots" aria-hidden="true"><i /><i /><i /></span>}
             </h2>
 
-            {/* Glowing avatar turns */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', alignItems: 'center' }}>
-              <div style={{
-                width: '50px', height: '50px', borderRadius: '50%',
-                background: 'rgba(255,0,127,0.1)', border: isRedTurn ? '2px solid var(--accent-pink)' : '1px solid rgba(255,255,255,0.05)',
-                boxShadow: isRedTurn ? 'var(--glow-pink)' : 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem',
-                transform: isRedTurn ? 'scale(1.15)' : 'scale(0.95)', transition: 'all 0.25s'
-              }}>
-                {gameMode === 'multiplayer' 
-                  ? (side === 'red' ? profile.avatar : (opponent?.avatar || '🤖')) 
-                  : profile.avatar}
-              </div>
-
-              <span className="display-font" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>VS</span>
-
-              <div style={{
-                width: '50px', height: '50px', borderRadius: '50%',
-                background: 'rgba(0,240,255,0.1)', border: !isRedTurn ? '2px solid var(--accent-cyan)' : '1px solid rgba(255,255,255,0.05)',
-                boxShadow: !isRedTurn ? 'var(--glow-cyan)' : 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem',
-                transform: !isRedTurn ? 'scale(1.15)' : 'scale(0.95)', transition: 'all 0.25s'
-              }}>
-                {gameMode === 'ai' ? '🤖' : gameMode === 'local' ? '👤' : (side === 'yellow' ? profile.avatar : (opponent?.avatar || '🤖'))}
-              </div>
+            <div className="player-cards">
+              {([['red', redPlayer], ['yellow', bluePlayer]] as const).map(([color, player]) => {
+                const active = !isGameOver && currentPlayer === color;
+                const won = winner === color;
+                return (
+                  <div key={color} className={`player-card ${color} ${active ? 'active' : ''} ${won ? 'won' : ''}`}>
+                    <span className="player-avatar">{player.avatar}</span>
+                    <span className="player-name">{player.name}</span>
+                    <span className={`player-chip-dot ${color}`} />
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          </section>
 
-          {/* AI Coach recommendation popup */}
-          {(winner || isDraw) && gameHistory.length > 0 && (
-            <div className="glass-panel" style={{
-              padding: '20px',
-              border: '1px solid var(--accent-cyan)',
-              boxShadow: 'var(--glow-cyan)',
-              background: 'linear-gradient(135deg, rgba(0, 240, 255, 0.1), rgba(13, 8, 30, 0.6))',
-              animation: 'blink-glow 3s infinite',
-              textAlign: 'center'
-            }}>
-              <Brain size={24} style={{ color: 'var(--accent-cyan)', margin: '0 auto 10px' }} />
-              <h3 className="display-font" style={{ fontSize: '0.9rem', marginBottom: '8px' }}>
-                АНАЛИЗ ХОДОВ ИИ-КОУЧЕМ
-              </h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '15px', lineHeight: '1.4' }}>
-                Партия завершена! Запустите интерактивного Коуча, чтобы разобрать ваши тактические неточности, сильные стороны и блундеры.
-              </p>
-              <button
-                className="glass-button active"
-                onClick={handleOpenCoachPanel}
-                style={{ width: '100%', justifyContent: 'center', background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))', borderColor: 'var(--accent-cyan)' }}
-              >
-                ОТКРЫТЬ АНАЛИЗ / REVIEW
-              </button>
-            </div>
+          {/* Post-game: AI Coach + play again */}
+          {isGameOver && gameHistory.length > 0 && (
+            <section className="coach-cta glass-panel">
+              <Brain size={22} />
+              <h3 className="display-font">{t('coachPrompt.title')}</h3>
+              <p>{t('coachPrompt.body')}</p>
+              <div className="coach-cta-actions">
+                <button className="glass-button active" onClick={handleOpenCoachPanel}>
+                  {t('coachPrompt.button')}
+                </button>
+                <button className="glass-button" onClick={handleRestart}>
+                  <RefreshCw size={14} />
+                  {t('controls.restart')}
+                </button>
+              </div>
+            </section>
           )}
 
-          {/* Dynamic AI Difficulties controller */}
-          {gameMode === 'ai' && !winner && !isDraw && (
-            <div className="glass-panel" style={{ padding: '20px' }}>
-              <span className="cyber-label" style={{ fontSize: '0.65rem' }}>Уровень сложности ИИ / AI Difficulty</span>
-              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                {(['easy', 'medium', 'hard'] as AIDifficulty[]).map((d) => (
+          {/* AI settings */}
+          {gameMode === 'ai' && (
+            <section className="glass-panel settings-card">
+              <span className="panel-label">{t('settings.difficulty')}</span>
+              <div className="segmented">
+                {DIFFICULTIES.map((d) => (
                   <button
                     key={d}
                     onClick={() => { playClick(); setDifficulty(d); resetLocalGame(); }}
-                    className={`glass-button ${difficulty === d ? 'active' : ''}`}
-                    style={{ flex: 1, fontSize: '0.65rem', padding: '6px 10px' }}
+                    className={difficulty === d ? 'selected' : ''}
+                    aria-pressed={difficulty === d}
                   >
-                    {d === 'easy' ? 'Легко' : d === 'medium' ? 'Средне' : 'Хард'}
+                    {t(`settings.${d}`)}
                   </button>
                 ))}
               </div>
-            </div>
+
+              <span className="panel-label">{t('settings.firstMove')}</span>
+              <div className="segmented">
+                {([false, true] as const).map((value) => (
+                  <button
+                    key={String(value)}
+                    onClick={() => { playClick(); setAiFirst(value); resetLocalGame({ aiStarts: value }); }}
+                    className={aiFirst === value ? 'selected' : ''}
+                    aria-pressed={aiFirst === value}
+                  >
+                    {value ? t('settings.aiFirst') : t('settings.youFirst')}
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
           {/* Multiplayer Restart request overlays */}
-          {gameMode === 'multiplayer' && roomCode && opponentWantsRestart && !winner && !isDraw && (
-            <div className="glass-panel" style={{ padding: '15px 20px', border: '1px dashed var(--accent-pink)', background: 'rgba(255,0,127,0.05)' }}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.8rem', marginBottom: '10px' }}>
-                <AlertTriangle size={14} className="neon-text-pink" />
-                <span>Соперник предлагает начать заново!</span>
+          {gameMode === 'multiplayer' && roomCode && opponentWantsRestart && (
+            <section className="glass-panel rematch-card">
+              <div>
+                <AlertTriangle size={14} />
+                <span>{t('mp.opponentRestart')}</span>
               </div>
-              <button 
-                className="glass-button active pink" 
+              <button
+                className="glass-button active"
                 onClick={() => { playClick(); onSendRestartConfirm(); }}
-                style={{ width: '100%', justifyContent: 'center', fontSize: '0.75rem' }}
               >
-                Согласиться / Restart Match
+                {t('mp.acceptRestart')}
               </button>
-            </div>
+            </section>
           )}
+
+          {/* Move list */}
+          <section className="glass-panel moves-card">
+            <span className="panel-label"><ListOrdered size={13} /> {t('moves.title')}</span>
+            {gameHistory.length === 0 ? (
+              <p className="moves-empty">{t('moves.empty')}</p>
+            ) : (
+              <ol className="move-list" ref={moveListRef}>
+                {gameHistory.map((step, i) => (
+                  <li key={i} className={i === gameHistory.length - 1 ? 'latest' : ''}>
+                    <span className="move-number">{i + 1}</span>
+                    <span className={`player-chip-dot ${step.player}`} />
+                    <span className="move-player">{playerName(step.player)}</span>
+                    <span className="move-col">{t('moves.column', { col: step.column + 1 })}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
 
         </div>
 

@@ -15,7 +15,9 @@
 - **AI Coach.** After each game, every move is graded (perfect / great / good / mistake / blunder) against the engine's best move. The coach points out missed wins, missed blocks and moves that handed your opponent a win.
 - **Accounts and leaderboard.** Supabase auth, with a global and per-city leaderboard and match history. It works offline too, using a localStorage cache.
 - **Progression.** Levels, CyberPoints, a skin shop, and a PRO tier prototype.
-- Dark/light theme, responsive layout, sound effects, and a highlighted winning line.
+- **English / Russian interface.** A full translation system with a one-click switch. It remembers your choice and defaults to your browser's language.
+- **Play your way.** Keyboard controls (`1`–`7`, or `←`/`→` + `Enter`, and `U` to undo), undo, a choice of who moves first against the AI, a live move list, and a ghost preview of where your token will land.
+- Dark/light theme, responsive layout down to phone width, sound effects, a highlighted winning line, and in-app notifications. Animations are reduced if your system asks for less motion.
 
 ## How the AI works
 
