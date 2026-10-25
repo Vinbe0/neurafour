@@ -2529,3 +2529,29 @@ h1, h2, h3, h4, h5, h6, .display-font {
     margin: 0 auto;
   }
 }
+
+/* Online room bar */
+.room-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+}
+
+.room-code {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.3rem;
+  letter-spacing: 0.12em;
+  color: var(--accent-cyan);
+}
+
+.room-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.room-actions .glass-button {
+  padding: 8px 10px;
+}
