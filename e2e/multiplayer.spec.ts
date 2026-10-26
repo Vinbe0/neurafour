@@ -32,6 +32,13 @@ test('two players create, join and finish an online game', async ({ browser }) =
   await expect(host.locator('.status-title')).toHaveText('Your turn');
   await expect(guest.locator('.status-title')).toHaveText("Opponent's turn");
 
+  // Chat works during the game, and typing digits in it does not drop tokens
+  const chatBox = host.getByRole('textbox', { name: 'Say something…' });
+  await chatBox.fill('gl hf 1234');
+  await chatBox.press('Enter');
+  await expect(guest.locator('.chat-panel .chat-bubble')).toHaveText('gl hf 1234');
+  await expect(moveList(host)).toHaveCount(0);
+
   // Alice wins on the bottom row while Bob stacks in column 7
   const moves: [typeof host, number][] = [
     [host, 1], [guest, 7], [host, 2], [guest, 7], [host, 3], [guest, 7], [host, 4],

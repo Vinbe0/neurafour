@@ -2555,3 +2555,126 @@ h1, h2, h3, h4, h5, h6, .display-font {
 .room-actions .glass-button {
   padding: 8px 10px;
 }
+
+/* Room chat (lobby and in-game) */
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+  padding: 20px;
+}
+
+.chat-panel.compact {
+  height: 280px;
+  padding: 16px 18px;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--surface-line);
+  color: var(--accent-cyan);
+}
+
+.chat-header h4 {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.chat-panel.compact .chat-header h4 {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.chat-messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 12px;
+}
+
+.chat-empty {
+  margin: auto;
+  text-align: center;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.chat-message {
+  display: flex;
+  gap: 8px;
+  max-width: 85%;
+  align-self: flex-start;
+}
+
+.chat-message.self {
+  flex-direction: row-reverse;
+  align-self: flex-end;
+  text-align: right;
+}
+
+.chat-avatar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--accent-cyan);
+  background: var(--surface-soft);
+  font-size: 0.85rem;
+}
+
+.chat-message.self .chat-avatar {
+  border-color: var(--accent-pink);
+}
+
+.chat-meta {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.chat-bubble {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 2px 12px 12px 12px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(56, 189, 248, 0.1);
+  font-size: 0.85rem;
+  text-align: left;
+  word-break: break-word;
+}
+
+.chat-message.self .chat-bubble {
+  border-radius: 12px 2px 12px 12px;
+  border-color: rgba(244, 63, 94, 0.25);
+  background: rgba(244, 63, 94, 0.1);
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-form .cyber-input {
+  font-size: 0.85rem;
+}
+
+.chat-form .glass-button {
+  flex-shrink: 0;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+}

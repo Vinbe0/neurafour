@@ -109,6 +109,7 @@ const en = {
   'lobby.chat': 'Chat',
   'lobby.chatEmpty': 'No messages yet. Say hi!',
   'lobby.chatPlaceholder': 'Say something…',
+  'lobby.send': 'Send message',
 
   // Coach panel
   'coach.unavailable': 'Analysis unavailable',
@@ -331,6 +332,7 @@ const ru: Record<TranslationKey, string> = {
   'lobby.chat': 'Чат',
   'lobby.chatEmpty': 'Сообщений пока нет. Поздоровайтесь!',
   'lobby.chatPlaceholder': 'Напишите сообщение…',
+  'lobby.send': 'Отправить сообщение',
 
   'coach.unavailable': 'Анализ недоступен',
   'coach.unavailableBody': 'Сделайте хотя бы один ход, чтобы открыть разбор.',

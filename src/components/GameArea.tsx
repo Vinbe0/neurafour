@@ -6,6 +6,7 @@ import { isGameOver as isGameOverState, newGame, playMove, undo, undoTarget } fr
 import type { GameState } from '../game';
 import { playClick, playChipDrop, playWin, playLoss, playAlert } from '../sound';
 import { Lobby } from './Lobby';
+import { ChatPanel } from './ChatPanel';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
 import { requestAnalysis, requestBestMove } from '../aiClient';
@@ -729,6 +730,11 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 {t('mp.acceptRestart')}
               </button>
             </section>
+          )}
+
+          {/* Chat stays available during an online game */}
+          {gameMode === 'multiplayer' && roomCode && (
+            <ChatPanel compact messages={chatHistory} ownName={profile.username} onSend={onSendChatMessage} />
           )}
 
           {/* Move list */}
