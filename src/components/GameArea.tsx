@@ -11,6 +11,8 @@ import { useToast } from '../toast';
 import { requestAnalysis, requestBestMove } from '../aiClient';
 
 interface GameAreaProps {
+  // False while another screen (the AI Coach) covers the game; keyboard controls pause
+  isActive: boolean;
   profile: UserProfile;
   onUpdateProfile: (updates: Partial<UserProfile>) => void;
   onSpendPoints: (item: string, cost: number) => boolean;
@@ -60,6 +62,7 @@ const makeConfettiParticle = (width: number, height: number): ConfettiParticle =
 });
 
 export const GameArea: React.FC<GameAreaProps> = ({
+  isActive,
   profile,
   onUpdateProfile,
   onSpendPoints,
@@ -401,7 +404,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
-      if (document.querySelector('.modal-overlay')) return;
+      if (!isActive || document.querySelector('.modal-overlay')) return;
       if (inLobby) return;
 
       if (e.key >= '1' && e.key <= String(COLS)) {

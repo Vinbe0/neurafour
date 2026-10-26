@@ -32,6 +32,12 @@ test('keyboard plays a local game to a win and offers the AI Coach', async ({ pa
 
   await page.getByRole('button', { name: 'Open review' }).click();
   await expect(page.getByRole('heading', { name: 'Post-game review' })).toBeVisible();
+
+  // Coming back from the review shows the same finished game, not a new one
+  await page.getByRole('button', { name: 'Game', exact: true }).click();
+  await expect(page.locator('.status-title')).toHaveText('Red wins!');
+  await expect(page.locator('.winning-cell')).toHaveCount(4);
+  await expect(moveList(page)).toHaveCount(7);
 });
 
 test('the language switch translates the interface', async ({ page }) => {

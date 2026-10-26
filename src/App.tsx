@@ -449,8 +449,8 @@ function App() {
 
       {/* Main content body routing */}
       <main style={{ flex: 1 }}>
-        {coachAnalyses ? (
-          /* Render Coach Panel if game-review mode is active */
+        {/* The game stays mounted (just hidden) during the review, so the finished board is still there afterwards */}
+        {coachAnalyses && (
           <CoachPanel
             analyses={coachAnalyses}
             isPro={profile.isPro}
@@ -460,9 +460,10 @@ function App() {
               setCoachAnalyses(null);
             }}
           />
-        ) : (
-          /* Default tab */
+        )}
+        <div hidden={!!coachAnalyses}>
           <GameArea
+            isActive={!coachAnalyses}
             profile={profile}
             onUpdateProfile={handleUpdateProfile}
             onSpendPoints={handleSpendPoints}
@@ -484,7 +485,7 @@ function App() {
             opponentWantsRestart={opponentWantsRestart}
             connectionError={connectionError}
           />
-        )}
+        </div>
       </main>
 
       {/* MODALS DISPLAY PORTALS */}
