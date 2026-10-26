@@ -2678,3 +2678,23 @@ h1, h2, h3, h4, h5, h6, .display-font {
   height: 42px;
   padding: 10px;
 }
+
+/* The header holds more controls than fit on one row below ~1240px, so it stacks
+   earlier than the rest of the layout */
+@media (max-width: 1240px) {
+  .app-header {
+    grid-template-columns: 1fr;
+    width: min(720px, calc(100% - 28px));
+  }
+
+  .header-brand {
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .header-nav,
+  .header-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
