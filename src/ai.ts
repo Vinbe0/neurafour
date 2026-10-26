@@ -201,7 +201,12 @@ export const getBestMove = (
   }
 
   // Hard mode: looks 6 moves ahead
-  return search(board, player, { maxDepth: 6 }).column;
+  if (difficulty === 'hard') {
+    return search(board, player, { maxDepth: 6 }).column;
+  }
+
+  // Expert mode: searches as deep as it can in 750 ms (usually 14+ moves ahead)
+  return search(board, player, { maxDepth: 42, timeMs: 750 }).column;
 };
 
 // ----------------------------------------------------

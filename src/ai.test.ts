@@ -10,6 +10,7 @@ import {
   isBoardFull,
   isColumnAvailable,
 } from './ai';
+import { search } from './engine';
 import type { BoardType, PlayerType } from './types';
 
 // Build a board by dropping tokens into the given columns, alternating turns.
@@ -97,7 +98,7 @@ describe('checkWin', () => {
 });
 
 describe('getBestMove', () => {
-  const difficulties = ['easy', 'medium', 'hard'] as const;
+  const difficulties = ['easy', 'medium', 'hard', 'expert'] as const;
 
   it.each(difficulties)('%s takes an immediate win', difficulty => {
     // red has 0,1,2 on the bottom row and moves next
@@ -115,6 +116,28 @@ describe('getBestMove', () => {
     // red threatens column 0 and yellow threatens column 6; red should win
     const board = play([0, 6, 0, 6, 0, 6]);
     expect(getBestMove(board, 'hard', 'red')).toBe(0);
+  });
+
+  it('a deeper search never loses to Hard, playing either colour', () => {
+    // Expert's strength comes from depth; a fixed 10-move search keeps this test deterministic
+    const playGame = (deepSide: PlayerType) => {
+      const board = createEmptyBoard();
+      let player: PlayerType = 'red';
+      for (let move = 0; move < ROWS * COLS; move++) {
+        const col = player === deepSide
+          ? search(board, player, { maxDepth: 10 }).column
+          : getBestMove(board, 'hard', player);
+        board[getAvailableRow(board, col)][col] = player;
+        const { winner } = checkWin(board);
+        if (winner) return winner;
+        player = player === 'red' ? 'yellow' : 'red';
+      }
+      return null;
+    };
+    for (const deepSide of ['red', 'yellow'] as const) {
+      const winner = playGame(deepSide);
+      expect(winner === null || winner === deepSide).toBe(true);
+    }
   });
 
   it('hard builds an unstoppable double threat', () => {

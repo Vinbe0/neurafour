@@ -47,7 +47,10 @@ interface HistoryStep {
   boardAfter: BoardType;
 }
 
-const DIFFICULTIES: AIDifficulty[] = ['easy', 'medium', 'hard'];
+const DIFFICULTIES: AIDifficulty[] = ['easy', 'medium', 'hard', 'expert'];
+
+// CyberPoints for beating the AI at each level
+const WIN_BONUS: Record<AIDifficulty, number> = { easy: 10, medium: 20, hard: 50, expert: 80 };
 
 interface ConfettiParticle {
   x: number;
@@ -283,7 +286,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
     if (isMyWin) {
       playWin();
       startConfetti();
-      const bonus = gameMode === 'multiplayer' ? 40 : difficulty === 'easy' ? 10 : difficulty === 'medium' ? 20 : 50;
+      const bonus = gameMode === 'multiplayer' ? 40 : WIN_BONUS[difficulty];
       recordMatch('win', bonus, gameMode === 'ai' ? aiName : onlineName);
     } else {
       playLoss();

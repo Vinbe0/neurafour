@@ -6,7 +6,7 @@ export type BoardType = CellType[][]; // 6 rows, 7 columns: BoardType[row][col]
 
 export type GameMode = 'local' | 'ai' | 'multiplayer';
 
-export type AIDifficulty = 'easy' | 'medium' | 'hard';
+export type AIDifficulty = 'easy' | 'medium' | 'hard' | 'expert';
 
 export type GameStatus = 'lobby' | 'playing' | 'draw' | 'win' | 'analysis';
 
