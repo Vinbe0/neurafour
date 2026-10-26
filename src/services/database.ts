@@ -1,5 +1,5 @@
 import type { LeaderboardItem, MatchHistoryItem, UserProfile } from '../types';
-import { supabase } from '../utils/supabase';
+import { getSupabase } from '../utils/supabase';
 
 const PLAYER_ID_KEY = 'neurafour_player_id_v1';
 
@@ -45,6 +45,7 @@ export const mapRemoteProfile = (row: RemoteProfileRow): UserProfile => ({
 });
 
 export const fetchProfileRowFromSupabase = async (userId: string): Promise<RemoteProfileRow | null> => {
+  const supabase = await getSupabase();
   if (!supabase) return null;
 
   const { data, error } = await supabase
@@ -70,6 +71,7 @@ export const fetchProfileFromSupabase = async (userId: string): Promise<UserProf
 // browser: they change only through the record_match, spend_points and activate_pro
 // database functions (supabase/migrations/*_server_side_scoring.sql).
 export const syncProfileToSupabase = async (profile: UserProfile, authenticatedUserId?: string) => {
+  const supabase = await getSupabase();
   if (!supabase) return { ok: false, reason: 'not_configured' };
   if (!authenticatedUserId) return { ok: false, reason: 'guest_profile' };
 
@@ -96,6 +98,7 @@ export const syncProfileToSupabase = async (profile: UserProfile, authenticatedU
 
 // Calls one of the scoring functions and returns the updated profile row, or null on failure
 const callScoringFunction = async (name: string, args: Record<string, unknown>): Promise<RemoteProfileRow | null> => {
+  const supabase = await getSupabase();
   if (!supabase) return null;
   const { data, error } = await supabase.rpc(name, args);
   if (error) {
@@ -120,6 +123,7 @@ export const spendPointsOnSupabase = (item: string) => callScoringFunction('spen
 export const activateProOnSupabase = () => callScoringFunction('activate_pro', {});
 
 export const fetchLeaderboardFromSupabase = async (): Promise<LeaderboardItem[]> => {
+  const supabase = await getSupabase();
   if (!supabase) return [];
 
   const { data, error } = await supabase

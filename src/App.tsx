@@ -1,12 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Header } from './components/Header';
 import { GameArea } from './components/GameArea';
-import { CoachPanel } from './components/CoachPanel';
-import { ProfileModal } from './components/ProfileModal';
-import { ProModal } from './components/ProModal';
-import { ShopModal } from './components/ShopModal';
-import { LeaderboardModal } from './components/LeaderboardModal';
-import { AuthModal } from './components/AuthModal';
 import type { UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage, RoomMove } from './types';
 import { playClick, playAlert, playUnlock, setMuted } from './sound';
 import {
@@ -18,7 +12,7 @@ import {
   syncProfileToSupabase,
 } from './services/database';
 import type { RemoteProfileRow } from './services/database';
-import { supabase } from './utils/supabase';
+import { getSupabase, hasStoredSession, whenSupabaseLoads } from './utils/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { CodeXml } from 'lucide-react';
 import { useI18n } from './i18n';
@@ -27,6 +21,15 @@ import { useToast } from './toast';
 
 const STORAGE_PROFILE_KEY = 'neurafour_user_profile_v2';
 const STORAGE_HISTORY_KEY = 'neurafour_match_history_v2';
+
+
+// Screens opened on demand are loaded on demand, keeping the first download small
+const CoachPanel = lazy(() => import('./components/CoachPanel').then((m) => ({ default: m.CoachPanel })));
+const ProfileModal = lazy(() => import('./components/ProfileModal').then((m) => ({ default: m.ProfileModal })));
+const ProModal = lazy(() => import('./components/ProModal').then((m) => ({ default: m.ProModal })));
+const ShopModal = lazy(() => import('./components/ShopModal').then((m) => ({ default: m.ShopModal })));
+const LeaderboardModal = lazy(() => import('./components/LeaderboardModal').then((m) => ({ default: m.LeaderboardModal })));
+const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
 
 // Server messages are sent as "Russian / English"; show the half that matches the UI language
 const pickServerText = (message: string, lang: Lang) => {
@@ -160,44 +163,41 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    if (!supabase) return;
-
     let active = true;
+    let unsubscribe = () => {};
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    // Load the signed-in player's profile, or create it from the local one
+    const loadAccount = async (nextSession: Session | null) => {
       if (!active) return;
-      setSession(data.session);
-
-      if (data.session?.user.id) {
-        const remoteProfile = await fetchProfileFromSupabase(data.session.user.id);
-        if (!active) return;
-
-        if (remoteProfile) {
-          setProfile(remoteProfile);
-          localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(remoteProfile));
-        } else {
-          await syncProfileToSupabase(profileRef.current, data.session.user.id);
-        }
-      }
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession);
+      const userId = nextSession?.user.id;
+      if (!userId) return;
 
-      if (nextSession?.user.id) {
-        const remoteProfile = await fetchProfileFromSupabase(nextSession.user.id);
-        if (remoteProfile) {
-          setProfile(remoteProfile);
-          localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(remoteProfile));
-        } else {
-          await syncProfileToSupabase(profileRef.current, nextSession.user.id);
-        }
+      const remoteProfile = await fetchProfileFromSupabase(userId);
+      if (!active) return;
+      if (remoteProfile) {
+        setProfile(remoteProfile);
+        localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(remoteProfile));
+      } else {
+        await syncProfileToSupabase(profileRef.current, userId);
       }
+    };
+
+    // Follow sign-ins and sign-outs as soon as the Supabase client exists. It is
+    // loaded now only if this browser has a saved session; otherwise it loads when
+    // the player opens sign-in or the leaderboard.
+    whenSupabaseLoads((supabase) => {
+      if (!active) return;
+      const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        void loadAccount(nextSession);
+      });
+      unsubscribe = () => listener.subscription.unsubscribe();
     });
+    if (hasStoredSession()) void getSupabase();
 
     return () => {
       active = false;
-      listener.subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
@@ -255,6 +255,7 @@ function App() {
 
   const handleSignOut = async () => {
     playClick();
+    const supabase = await getSupabase();
     await supabase?.auth.signOut();
     setSession(null);
   };
@@ -532,15 +533,17 @@ function App() {
       <main style={{ flex: 1 }}>
         {/* The game stays mounted (just hidden) during the review, so the finished board is still there afterwards */}
         {coachAnalyses && (
-          <CoachPanel
-            analyses={coachAnalyses}
-            isPro={profile.isPro}
-            onOpenPro={() => setIsProOpen(true)}
-            onClose={() => {
-              playClick();
-              setCoachAnalyses(null);
-            }}
-          />
+          <Suspense fallback={null}>
+            <CoachPanel
+              analyses={coachAnalyses}
+              isPro={profile.isPro}
+              onOpenPro={() => setIsProOpen(true)}
+              onClose={() => {
+                playClick();
+                setCoachAnalyses(null);
+              }}
+            />
+          </Suspense>
         )}
         <div hidden={!!coachAnalyses}>
           <GameArea
@@ -570,44 +573,56 @@ function App() {
         </div>
       </main>
 
-      {/* MODALS DISPLAY PORTALS */}
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        profile={profile}
-        onUpdateProfile={handleUpdateProfile}
-        matchHistory={matchHistory}
-        accountEmail={session?.user.email ?? null}
-        onOpenAuth={() => setIsAuthOpen(true)}
-        onSignOut={handleSignOut}
-      />
+      {/* Dialogs: each one is downloaded and mounted only while open */}
+      <Suspense fallback={null}>
+        {isProfileOpen && (
+          <ProfileModal
+            isOpen={isProfileOpen}
+            onClose={() => setIsProfileOpen(false)}
+            profile={profile}
+            onUpdateProfile={handleUpdateProfile}
+            matchHistory={matchHistory}
+            accountEmail={session?.user.email ?? null}
+            onOpenAuth={() => setIsAuthOpen(true)}
+            onSignOut={handleSignOut}
+          />
+        )}
 
-      <ProModal
-        isOpen={isProOpen}
-        onClose={() => setIsProOpen(false)}
-        profile={profile}
-        onActivatePro={handleActivatePro}
-      />
+        {isProOpen && (
+          <ProModal
+            isOpen={isProOpen}
+            onClose={() => setIsProOpen(false)}
+            profile={profile}
+            onActivatePro={handleActivatePro}
+          />
+        )}
 
-      <ShopModal
-        isOpen={isShopOpen}
-        onClose={() => setIsShopOpen(false)}
-        profile={profile}
-        onUnlockSkin={handleUnlockSkin}
-        onEquipSkin={handleEquipSkin}
-      />
+        {isShopOpen && (
+          <ShopModal
+            isOpen={isShopOpen}
+            onClose={() => setIsShopOpen(false)}
+            profile={profile}
+            onUnlockSkin={handleUnlockSkin}
+            onEquipSkin={handleEquipSkin}
+          />
+        )}
 
-      <LeaderboardModal
-        isOpen={isLeaderboardOpen}
-        onClose={() => setIsLeaderboardOpen(false)}
-        profile={profile}
-        accountUserId={session?.user.id ?? null}
-      />
+        {isLeaderboardOpen && (
+          <LeaderboardModal
+            isOpen={isLeaderboardOpen}
+            onClose={() => setIsLeaderboardOpen(false)}
+            profile={profile}
+            accountUserId={session?.user.id ?? null}
+          />
+        )}
 
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-      />
+        {isAuthOpen && (
+          <AuthModal
+            isOpen={isAuthOpen}
+            onClose={() => setIsAuthOpen(false)}
+          />
+        )}
+      </Suspense>
 
       {/* Footer bar */}
       <footer className="app-footer">

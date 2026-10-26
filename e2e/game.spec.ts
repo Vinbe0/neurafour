@@ -57,3 +57,21 @@ test('the theme follows the system setting until the player picks one', async ({
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(page.getByRole('button', { name: 'Dark theme' })).toBeVisible();
 });
+
+test('every dialog loads when opened', async ({ page }) => {
+  await page.goto('/');
+  const dialogs: [string, string][] = [
+    ['Leaderboard', 'Leaderboard'],
+    ['Shop', 'Skin shop'],
+    ['Upgrade', 'NeuraFour PRO'],
+    ['Sign in', 'Sign in'],
+  ];
+  for (const [button, heading] of dialogs) {
+    await page.getByRole('button', { name: button, exact: true }).click();
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.locator('.modal-overlay')).toHaveCount(0);
+  }
+  await page.locator('.header-profile').click();
+  await expect(page.getByRole('heading', { name: 'Tester' })).toBeVisible();
+});
