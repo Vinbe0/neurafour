@@ -80,7 +80,19 @@ VITE_SUPABASE_PUBLISHABLE_KEY=...
 VITE_WS_URL=wss://your-server.example.com   # defaults to ws://<host>:5001
 ```
 
-To turn on the real leaderboard, run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor.
+To turn on the real leaderboard, run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor, then each file in [`supabase/migrations/`](supabase/migrations/) in order.
+
+### Leaderboard security
+
+Signed-in players cannot write their own score. They can only edit their name, city and avatar; points and stats change only through database functions ([migration](supabase/migrations/20261026000000_server_side_scoring.sql)):
+
+- `record_match` computes the points for a result itself, ignores local two-player games, allows one result every 20 seconds and caps earnings at 600 points a day
+- `spend_points` charges server-side prices for hints and skins and refuses to overspend
+- `activate_pro` turns on the (free, demo) PRO plan
+
+Results are still reported by the browser, since the server does not replay games against the AI, so these limits bound what a cheater can gain rather than make cheating impossible.
+
+`npm run test:db` checks all of this against a real Postgres database (`DATABASE_URL` must point to a server where it can create a throwaway database). CI runs it on every pull request.
 
 ## Deployment
 

@@ -9,7 +9,15 @@ import { LeaderboardModal } from './components/LeaderboardModal';
 import { AuthModal } from './components/AuthModal';
 import type { UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from './types';
 import { playClick, playAlert, playUnlock, setMuted } from './sound';
-import { fetchProfileFromSupabase, saveMatchToSupabase, syncProfileToSupabase } from './services/database';
+import {
+  activateProOnSupabase,
+  fetchProfileFromSupabase,
+  fetchProfileRowFromSupabase,
+  recordMatchOnSupabase,
+  spendPointsOnSupabase,
+  syncProfileToSupabase,
+} from './services/database';
+import type { RemoteProfileRow } from './services/database';
 import { supabase } from './utils/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { CodeXml } from 'lucide-react';
@@ -25,6 +33,8 @@ const pickServerText = (message: string, lang: Lang) => {
   const [ru, en] = message.split(' / ');
   return (lang === 'ru' ? ru : en ?? ru).trim();
 };
+
+const ALL_SKINS = ['cyber-neon', 'retro-arcade', 'space-obsidian', 'royal-gold'];
 
 const DEFAULT_PROFILE: UserProfile = {
   username: 'NetRunner_1',
@@ -149,12 +159,48 @@ function App() {
     void syncProfileToSupabase(updated, session?.user.id);
   };
 
+  // Signed-in players: the server owns points, stats and PRO. The UI updates right away
+  // (optimistically), then takes the server's numbers, or reloads them if a call failed.
+  const applyServerProfile = (row: RemoteProfileRow) => {
+    setProfile((current) => {
+      const updated: UserProfile = {
+        ...current,
+        points: row.points,
+        isPro: row.is_pro,
+        stats: { wins: row.wins, losses: row.losses, draws: row.draws },
+        unlockedSkins: row.is_pro ? ALL_SKINS : current.unlockedSkins,
+      };
+      localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const syncScore = async (call: () => Promise<RemoteProfileRow | null>) => {
+    const userId = session?.user.id;
+    if (!userId) return;
+    const row = await call();
+    if (row) {
+      applyServerProfile(row);
+      return;
+    }
+    const remote = await fetchProfileRowFromSupabase(userId);
+    if (remote) applyServerProfile(remote);
+  };
+
   // Add historical match card
   const handleAddMatchHistory = (match: MatchHistoryItem) => {
     const updatedHistory = [match, ...matchHistory].slice(0, 20); // Keep last 20
     setMatchHistory(updatedHistory);
     localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(updatedHistory));
-    void saveMatchToSupabase(profile, match, session?.user.id);
+    void syncScore(() => recordMatchOnSupabase(match));
+  };
+
+  // Hints and skins cost points; `item` is 'hint' or 'skin:<id>'
+  const handleSpendPoints = (item: string, cost: number, updates: Partial<UserProfile> = {}) => {
+    if (profile.points < cost) return false;
+    handleUpdateProfile({ ...updates, points: profile.points - cost });
+    void syncScore(() => spendPointsOnSupabase(item));
+    return true;
   };
 
   const handleSignOut = async () => {
@@ -172,22 +218,16 @@ function App() {
   // Pro features activation
   const handleActivatePro = () => {
     // Unlocks all skins and activates PRO
-    handleUpdateProfile({
-      isPro: true,
-      unlockedSkins: ['cyber-neon', 'retro-arcade', 'space-obsidian', 'royal-gold'],
-    });
+    handleUpdateProfile({ isPro: true, unlockedSkins: ALL_SKINS });
+    void syncScore(activateProOnSupabase);
   };
 
   // Shop item purchase
   const handleUnlockSkin = (skinId: string, price: number) => {
-    if (profile.points >= price) {
-      const updatedSkins = [...profile.unlockedSkins, skinId];
-      handleUpdateProfile({
-        points: profile.points - price,
-        unlockedSkins: updatedSkins,
-        activeSkin: skinId,
-      });
-    }
+    handleSpendPoints(`skin:${skinId}`, price, {
+      unlockedSkins: [...profile.unlockedSkins, skinId],
+      activeSkin: skinId,
+    });
   };
 
   // Shop item equip
@@ -404,6 +444,7 @@ function App() {
           <GameArea
             profile={profile}
             onUpdateProfile={handleUpdateProfile}
+            onSpendPoints={handleSpendPoints}
             onAddMatchHistory={handleAddMatchHistory}
             isMuted={isMutedState}
             onOpenPro={() => setIsProOpen(true)}

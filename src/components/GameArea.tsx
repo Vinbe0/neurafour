@@ -13,6 +13,7 @@ import { requestAnalysis, requestBestMove } from '../aiClient';
 interface GameAreaProps {
   profile: UserProfile;
   onUpdateProfile: (updates: Partial<UserProfile>) => void;
+  onSpendPoints: (item: string, cost: number) => boolean;
   onAddMatchHistory: (match: MatchHistoryItem) => void;
   isMuted: boolean;
   onOpenPro: () => void;
@@ -61,6 +62,7 @@ const makeConfettiParticle = (width: number, height: number): ConfettiParticle =
 export const GameArea: React.FC<GameAreaProps> = ({
   profile,
   onUpdateProfile,
+  onSpendPoints,
   onAddMatchHistory,
   onOpenCoach,
   roomCode,
@@ -235,14 +237,16 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const aiName = `AI (${difficulty})`;
     const onlineName = opponent?.username || t('player.opponent');
 
-    if (!gameWinner) {
-      playAlert();
-      recordMatch('draw', 8, gameMode === 'ai' ? aiName : gameMode === 'local' ? t('player.localOpponent') : onlineName);
+    // Two players on one screen: no points, so the leaderboard cannot be farmed
+    if (gameMode === 'local') {
+      if (gameWinner) playWin();
+      else playAlert();
       return;
     }
 
-    if (gameMode === 'local') {
-      playWin();
+    if (!gameWinner) {
+      playAlert();
+      recordMatch('draw', 8, gameMode === 'ai' ? aiName : onlineName);
       return;
     }
 
@@ -352,8 +356,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
         return;
       }
       playClick();
-      // Deduct CP points for non-pro hints
-      onUpdateProfile({ points: profile.points - 15 });
+      // Non-PRO hints cost 15 CP
+      onSpendPoints('hint', 15);
     } else {
       playClick();
     }
