@@ -65,6 +65,7 @@ const en = {
   'settings.easy': 'Easy',
   'settings.medium': 'Medium',
   'settings.hard': 'Hard',
+  'settings.expert': 'Expert',
   'settings.firstMove': 'First move',
   'settings.youFirst': 'You',
   'settings.aiFirst': 'AI',
@@ -78,11 +79,15 @@ const en = {
   'coachPrompt.title': 'Review with the AI Coach',
   'coachPrompt.body': 'See every move graded, where you missed a win or a block, and what the engine would have played.',
   'coachPrompt.button': 'Open review',
+  'coachPrompt.analyzing': 'Analyzing…',
 
   // Multiplayer in-game
   'mp.opponentRestart': 'Your opponent wants a rematch',
   'mp.acceptRestart': 'Accept rematch',
   'mp.restartSent': 'Rematch request sent to your opponent.',
+  'mp.rejoined': 'Reconnected to room {code}.',
+  'mp.opponentDisconnected': 'Your opponent lost connection. Waiting {seconds} s for them to come back…',
+  'mp.opponentReconnected': 'Your opponent is back.',
   'mp.serverError': 'Could not reach the multiplayer server. Try again in a moment.',
 
   // Lobby
@@ -107,6 +112,7 @@ const en = {
   'lobby.chat': 'Chat',
   'lobby.chatEmpty': 'No messages yet. Say hi!',
   'lobby.chatPlaceholder': 'Say something…',
+  'lobby.send': 'Send message',
 
   // Coach panel
   'coach.unavailable': 'Analysis unavailable',
@@ -289,6 +295,7 @@ const ru: Record<TranslationKey, string> = {
   'settings.easy': 'Легко',
   'settings.medium': 'Средне',
   'settings.hard': 'Сложно',
+  'settings.expert': 'Эксперт',
   'settings.firstMove': 'Первый ход',
   'settings.youFirst': 'Вы',
   'settings.aiFirst': 'ИИ',
@@ -300,10 +307,14 @@ const ru: Record<TranslationKey, string> = {
   'coachPrompt.title': 'Разбор с ИИ-коучем',
   'coachPrompt.body': 'Оценка каждого хода: где вы упустили победу или защиту и как сыграл бы движок.',
   'coachPrompt.button': 'Открыть разбор',
+  'coachPrompt.analyzing': 'Анализ…',
 
   'mp.opponentRestart': 'Соперник предлагает реванш',
   'mp.acceptRestart': 'Принять реванш',
   'mp.restartSent': 'Запрос на реванш отправлен сопернику.',
+  'mp.rejoined': 'Вы снова в комнате {code}.',
+  'mp.opponentDisconnected': 'Соперник потерял связь. Ждём его {seconds} с…',
+  'mp.opponentReconnected': 'Соперник вернулся.',
   'mp.serverError': 'Не удалось подключиться к серверу мультиплеера. Попробуйте чуть позже.',
 
   'lobby.title': 'Сетевая дуэль',
@@ -327,6 +338,7 @@ const ru: Record<TranslationKey, string> = {
   'lobby.chat': 'Чат',
   'lobby.chatEmpty': 'Сообщений пока нет. Поздоровайтесь!',
   'lobby.chatPlaceholder': 'Напишите сообщение…',
+  'lobby.send': 'Отправить сообщение',
 
   'coach.unavailable': 'Анализ недоступен',
   'coach.unavailableBody': 'Сделайте хотя бы один ход, чтобы открыть разбор.',

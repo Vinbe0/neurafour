@@ -59,7 +59,7 @@ npm run dev
 
 После этого GitHub Pages будет публиковать собранную папку `dist`, а не исходники из root.
 
-Важно: GitHub Pages размещает только статический фронтенд. Локальный WebSocket-сервер из `server/server.js` на Pages работать не будет. Для онлайн-мультиплеера нужен отдельный backend-хостинг, например Render, Railway, Fly.io или VPS.
+Важно: GitHub Pages размещает только статический фронтенд. Локальный WebSocket-сервер из `server/` на Pages работать не будет. Для онлайн-мультиплеера нужен отдельный backend-хостинг, например Render, Railway, Fly.io или VPS.
 
 ## Supabase
 

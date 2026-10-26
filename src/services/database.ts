@@ -1,5 +1,5 @@
 import type { LeaderboardItem, MatchHistoryItem, UserProfile } from '../types';
-import { supabase } from '../utils/supabase';
+import { getSupabase } from '../utils/supabase';
 
 const PLAYER_ID_KEY = 'neurafour_player_id_v1';
 
@@ -44,7 +44,8 @@ export const mapRemoteProfile = (row: RemoteProfileRow): UserProfile => ({
   },
 });
 
-export const fetchProfileFromSupabase = async (userId: string): Promise<UserProfile | null> => {
+export const fetchProfileRowFromSupabase = async (userId: string): Promise<RemoteProfileRow | null> => {
+  const supabase = await getSupabase();
   if (!supabase) return null;
 
   const { data, error } = await supabase
@@ -58,27 +59,30 @@ export const fetchProfileFromSupabase = async (userId: string): Promise<UserProf
     return null;
   }
 
-  return data ? mapRemoteProfile(data as RemoteProfileRow) : null;
+  return (data as RemoteProfileRow | null) ?? null;
 };
 
+export const fetchProfileFromSupabase = async (userId: string): Promise<UserProfile | null> => {
+  const row = await fetchProfileRowFromSupabase(userId);
+  return row ? mapRemoteProfile(row) : null;
+};
+
+// Saves the fields a player may edit. Points, stats and PRO are never sent from the
+// browser: they change only through the record_match, spend_points and activate_pro
+// database functions (supabase/migrations/*_server_side_scoring.sql).
 export const syncProfileToSupabase = async (profile: UserProfile, authenticatedUserId?: string) => {
+  const supabase = await getSupabase();
   if (!supabase) return { ok: false, reason: 'not_configured' };
   if (!authenticatedUserId) return { ok: false, reason: 'guest_profile' };
 
-  const playerId = getPlayerId(authenticatedUserId);
   const { error } = await supabase
     .from('profiles')
     .upsert(
       {
-        id: playerId,
+        id: getPlayerId(authenticatedUserId),
         username: profile.username,
         city: profile.city,
         avatar: profile.avatar,
-        points: profile.points,
-        is_pro: profile.isPro,
-        wins: profile.stats.wins,
-        losses: profile.stats.losses,
-        draws: profile.stats.draws,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }
@@ -92,36 +96,34 @@ export const syncProfileToSupabase = async (profile: UserProfile, authenticatedU
   return { ok: true };
 };
 
-export const saveMatchToSupabase = async (
-  profile: UserProfile,
-  match: MatchHistoryItem,
-  authenticatedUserId?: string
-) => {
-  if (!supabase) return { ok: false, reason: 'not_configured' };
-  if (!authenticatedUserId) return { ok: false, reason: 'guest_match' };
-
-  const playerId = getPlayerId(authenticatedUserId);
-  const { error } = await supabase.from('matches').insert({
-    id: match.id,
-    player_id: playerId,
-    username: profile.username,
-    opponent: match.opponent,
-    mode: match.mode,
-    difficulty: match.difficulty ?? null,
-    result: match.result,
-    points_earned: match.pointsEarned,
-    created_at: new Date().toISOString(),
-  });
-
+// Calls one of the scoring functions and returns the updated profile row, or null on failure
+const callScoringFunction = async (name: string, args: Record<string, unknown>): Promise<RemoteProfileRow | null> => {
+  const supabase = await getSupabase();
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc(name, args);
   if (error) {
-    console.warn('Supabase match save failed:', error.message);
-    return { ok: false, reason: error.message };
+    console.warn(`Supabase ${name} failed:`, error.message);
+    return null;
   }
-
-  return { ok: true };
+  return data as RemoteProfileRow;
 };
 
+// The server decides how many points the result is worth
+export const recordMatchOnSupabase = (match: MatchHistoryItem) =>
+  callScoringFunction('record_match', {
+    p_mode: match.mode,
+    p_difficulty: match.difficulty ?? null,
+    p_result: match.result,
+    p_opponent: match.opponent,
+  });
+
+// `item` is 'hint' or 'skin:<id>'; prices are set on the server
+export const spendPointsOnSupabase = (item: string) => callScoringFunction('spend_points', { p_item: item });
+
+export const activateProOnSupabase = () => callScoringFunction('activate_pro', {});
+
 export const fetchLeaderboardFromSupabase = async (): Promise<LeaderboardItem[]> => {
+  const supabase = await getSupabase();
   if (!supabase) return [];
 
   const { data, error } = await supabase

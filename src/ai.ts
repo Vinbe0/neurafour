@@ -1,84 +1,12 @@
 import type { BoardType, CellType, PlayerType, AIDifficulty, MoveAnalysis, MoveGrade } from './types';
+import { search } from './engine';
+import { COLS, ROWS, checkWin, getAvailableRow, isColumnAvailable } from './rules';
 
-export const ROWS = 6;
-export const COLS = 7;
+// Board rules live in rules.ts; re-exported so existing imports keep working
+export { ROWS, COLS, createEmptyBoard, isColumnAvailable, getAvailableRow, checkWin, isBoardFull } from './rules';
+export type { WinResult } from './rules';
 
-// Create an empty board
-export const createEmptyBoard = (): BoardType => {
-  return Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
-};
-
-// Check if column is not full
-export const isColumnAvailable = (board: BoardType, col: number): boolean => {
-  return board[0][col] === null;
-};
-
-// Get the row where a token will fall in a column
-export const getAvailableRow = (board: BoardType, col: number): number => {
-  for (let r = ROWS - 1; r >= 0; r--) {
-    if (board[r][col] === null) {
-      return r;
-    }
-  }
-  return -1;
-};
-
-// Check for a win and return winning cells if any
-export interface WinResult {
-  winner: PlayerType | null;
-  cells: [number, number][]; // coordinates of the winning 4 cells [[r, c], ...]
-}
-
-export const checkWin = (board: BoardType): WinResult => {
-  // Horizontal
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS - 3; c++) {
-      const p = board[r][c];
-      if (p && p === board[r][c+1] && p === board[r][c+2] && p === board[r][c+3]) {
-        return { winner: p, cells: [[r, c], [r, c+1], [r, c+2], [r, c+3]] };
-      }
-    }
-  }
-
-  // Vertical
-  for (let r = 0; r < ROWS - 3; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const p = board[r][c];
-      if (p && p === board[r+1][c] && p === board[r+2][c] && p === board[r+3][c]) {
-        return { winner: p, cells: [[r, c], [r+1, c], [r+2, c], [r+3, c]] };
-      }
-    }
-  }
-
-  // Positive Diagonal (down-right / up-left)
-  for (let r = 0; r < ROWS - 3; r++) {
-    for (let c = 0; c < COLS - 3; c++) {
-      const p = board[r][c];
-      if (p && p === board[r+1][c+1] && p === board[r+2][c+2] && p === board[r+3][c+3]) {
-        return { winner: p, cells: [[r, c], [r+1, c+1], [r+2, c+2], [r+3, c+3]] };
-      }
-    }
-  }
-
-  // Negative Diagonal (up-right / down-left)
-  for (let r = 3; r < ROWS; r++) {
-    for (let c = 0; c < COLS - 3; c++) {
-      const p = board[r][c];
-      if (p && p === board[r-1][c+1] && p === board[r-2][c+2] && p === board[r-3][c+3]) {
-        return { winner: p, cells: [[r, c], [r-1, c+1], [r-2, c+2], [r-3, c+3]] };
-      }
-    }
-  }
-
-  return { winner: null, cells: [] };
-};
-
-// Check if board is completely full
-export const isBoardFull = (board: BoardType): boolean => {
-  return board[0].every(cell => cell !== null);
-};
-
-// AI Engine: Minimax + Heuristic Scoring
+// Heuristic scoring (the search itself lives in engine.ts)
 
 // Score window of 4 cells
 const evaluateWindow = (window: CellType[], player: PlayerType): number => {
@@ -154,80 +82,6 @@ export const evaluateBoard = (board: BoardType, player: PlayerType): number => {
   return score;
 };
 
-// Column ordering (checking middle columns first maximizes alpha-beta cuts)
-const COLUMN_ORDER = [3, 2, 4, 1, 5, 0, 6];
-
-// Minimax with Alpha-Beta pruning
-interface MinimaxResult {
-  score: number;
-  column: number;
-}
-
-const minimax = (
-  board: BoardType,
-  depth: number,
-  alpha: number,
-  beta: number,
-  isMaximizing: boolean,
-  player: PlayerType
-): MinimaxResult => {
-  const opponent: PlayerType = player === 'red' ? 'yellow' : 'red';
-
-  // Terminal checks
-  const winState = checkWin(board);
-  if (winState.winner === player) {
-    return { score: 10000000 + depth, column: -1 }; // prefer winning sooner
-  } else if (winState.winner === opponent) {
-    return { score: -10000000 - depth, column: -1 }; // prefer losing later
-  }
-
-  if (isBoardFull(board) || depth === 0) {
-    return { score: evaluateBoard(board, player), column: -1 };
-  }
-
-  if (isMaximizing) {
-    let maxEval = -Infinity;
-    let bestCol = -1;
-
-    for (const c of COLUMN_ORDER) {
-      if (isColumnAvailable(board, c)) {
-        const r = getAvailableRow(board, c);
-        board[r][c] = player;
-        const evaluation = minimax(board, depth - 1, alpha, beta, false, player).score;
-        board[r][c] = null; // Backtrack
-
-        if (evaluation > maxEval) {
-          maxEval = evaluation;
-          bestCol = c;
-        }
-        alpha = Math.max(alpha, evaluation);
-        if (beta <= alpha) break; // Beta cutoff
-      }
-    }
-    return { score: maxEval, column: bestCol };
-  } else {
-    let minEval = Infinity;
-    let bestCol = -1;
-
-    for (const c of COLUMN_ORDER) {
-      if (isColumnAvailable(board, c)) {
-        const r = getAvailableRow(board, c);
-        board[r][c] = opponent;
-        const evaluation = minimax(board, depth - 1, alpha, beta, true, player).score;
-        board[r][c] = null; // Backtrack
-
-        if (evaluation < minEval) {
-          minEval = evaluation;
-          bestCol = c;
-        }
-        beta = Math.min(beta, evaluation);
-        if (beta <= alpha) break; // Alpha cutoff
-      }
-    }
-    return { score: minEval, column: bestCol };
-  }
-};
-
 // API: Get best move for AI
 export const getBestMove = (
   board: BoardType,
@@ -259,22 +113,27 @@ export const getBestMove = (
     }
   }
 
-  // Easy mode: 35% random moves, 65% depth-2 minimax
+  // Easy mode: 35% random moves, 65% a 2-move search
   if (difficulty === 'easy') {
     if (Math.random() < 0.35) {
       const avails = Array.from({ length: COLS }, (_, idx) => idx).filter(c => isColumnAvailable(board, c));
       return avails[Math.floor(Math.random() * avails.length)];
     }
-    return minimax(board, 2, -Infinity, Infinity, true, player).column;
+    return search(board, player, { maxDepth: 2 }).column;
   }
 
-  // Medium mode: depth-4 minimax
+  // Medium mode: looks 4 moves ahead
   if (difficulty === 'medium') {
-    return minimax(board, 4, -Infinity, Infinity, true, player).column;
+    return search(board, player, { maxDepth: 4 }).column;
   }
 
-  // Hard mode: depth-6 minimax (with deeper evaluation)
-  return minimax(board, 6, -Infinity, Infinity, true, player).column;
+  // Hard mode: looks 6 moves ahead
+  if (difficulty === 'hard') {
+    return search(board, player, { maxDepth: 6 }).column;
+  }
+
+  // Expert mode: searches as deep as it can in 750 ms (usually 14+ moves ahead)
+  return search(board, player, { maxDepth: 42, timeMs: 750 }).column;
 };
 
 // ----------------------------------------------------
@@ -292,9 +151,9 @@ export const analyzeMatch = (
     const activePlayer = step.player;
     const oppPlayer = activePlayer === 'red' ? 'yellow' : 'red';
 
-    // 1. Calculate optimal move using Minimax
-    const minimaxResult = minimax(step.boardBefore, analysisDepth, -Infinity, Infinity, true, activePlayer);
-    const recommendedCol = minimaxResult.column;
+    // 1. Calculate optimal move with the search engine
+    const engineResult = search(step.boardBefore, activePlayer, { maxDepth: analysisDepth });
+    const recommendedCol = engineResult.column;
 
     // 2. Evaluate state BEFORE and AFTER the actual move
     const evalBefore = evaluateBoard(step.boardBefore, activePlayer);
@@ -387,7 +246,7 @@ export const analyzeMatch = (
       commentaryRu = "Идеально. Это был математически сильнейший стратегический ход.";
     } else {
       // Compare evaluation drops
-      const delta = evalAfter - minimaxResult.score;
+      const delta = evalAfter - engineResult.score;
       
       if (delta < -300) {
         grade = 'mistake';

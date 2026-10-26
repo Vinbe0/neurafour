@@ -1,16 +1,18 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Header } from './components/Header';
 import { GameArea } from './components/GameArea';
-import { CoachPanel } from './components/CoachPanel';
-import { ProfileModal } from './components/ProfileModal';
-import { ProModal } from './components/ProModal';
-import { ShopModal } from './components/ShopModal';
-import { LeaderboardModal } from './components/LeaderboardModal';
-import { AuthModal } from './components/AuthModal';
-import type { UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from './types';
+import type { UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage, RoomMove } from './types';
 import { playClick, playAlert, playUnlock, setMuted } from './sound';
-import { fetchProfileFromSupabase, saveMatchToSupabase, syncProfileToSupabase } from './services/database';
-import { supabase } from './utils/supabase';
+import {
+  activateProOnSupabase,
+  fetchProfileFromSupabase,
+  fetchProfileRowFromSupabase,
+  recordMatchOnSupabase,
+  spendPointsOnSupabase,
+  syncProfileToSupabase,
+} from './services/database';
+import type { RemoteProfileRow } from './services/database';
+import { getSupabase, hasStoredSession, whenSupabaseLoads } from './utils/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { CodeXml } from 'lucide-react';
 import { useI18n } from './i18n';
@@ -20,11 +22,62 @@ import { useToast } from './toast';
 const STORAGE_PROFILE_KEY = 'neurafour_user_profile_v2';
 const STORAGE_HISTORY_KEY = 'neurafour_match_history_v2';
 
+
+// Screens opened on demand are loaded on demand, keeping the first download small
+const CoachPanel = lazy(() => import('./components/CoachPanel').then((m) => ({ default: m.CoachPanel })));
+const ProfileModal = lazy(() => import('./components/ProfileModal').then((m) => ({ default: m.ProfileModal })));
+const ProModal = lazy(() => import('./components/ProModal').then((m) => ({ default: m.ProModal })));
+const ShopModal = lazy(() => import('./components/ShopModal').then((m) => ({ default: m.ShopModal })));
+const LeaderboardModal = lazy(() => import('./components/LeaderboardModal').then((m) => ({ default: m.LeaderboardModal })));
+const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
+
 // Server messages are sent as "Russian / English"; show the half that matches the UI language
 const pickServerText = (message: string, lang: Lang) => {
   const [ru, en] = message.split(' / ');
   return (lang === 'ru' ? ru : en ?? ru).trim();
 };
+
+const STORAGE_THEME_KEY = 'neurafour_theme';
+
+// Saved choice first, then the system setting; index.html applies the same rule before
+// React loads so the page never flashes the wrong theme
+const loadTheme = (): 'dark' | 'light' => {
+  try {
+    const saved = localStorage.getItem(STORAGE_THEME_KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
+  } catch {
+    // storage unavailable: fall back to the system setting
+  }
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+};
+
+// The online room this tab is in, kept for the session so a page reload can rejoin it
+const STORAGE_ROOM_KEY = 'neurafour_room';
+
+interface SavedRoom {
+  roomCode: string;
+  token: string;
+}
+
+const loadSavedRoom = (): SavedRoom | null => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(STORAGE_ROOM_KEY) ?? 'null');
+    return saved && typeof saved.roomCode === 'string' && typeof saved.token === 'string' ? saved : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveRoom = (room: SavedRoom | null) => {
+  try {
+    if (room) sessionStorage.setItem(STORAGE_ROOM_KEY, JSON.stringify(room));
+    else sessionStorage.removeItem(STORAGE_ROOM_KEY);
+  } catch {
+    // without storage the game still works, it just cannot be rejoined after a reload
+  }
+};
+
+const ALL_SKINS = ['cyber-neon', 'retro-arcade', 'space-obsidian', 'royal-gold'];
 
 const DEFAULT_PROFILE: UserProfile = {
   username: 'NetRunner_1',
@@ -64,7 +117,7 @@ function App() {
 
   // Control configurations
   const [isMutedState, setIsMutedState] = useState(false);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(loadTheme);
 
   // WebSocket Multiplayer Networking
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -74,6 +127,9 @@ function App() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [opponentWantsRestart, setOpponentWantsRestart] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  // Moves of an online game restored after a page reload, replayed by GameArea
+  const [restoredMoves, setRestoredMoves] = useState<RoomMove[] | null>(null);
+  const rejoinAttempted = useRef(false);
 
   // Load profile progress from LocalStorage on launch
   useEffect(() => {
@@ -91,8 +147,6 @@ function App() {
       console.error('Failed to load local storage save progress', e);
     }
 
-    // Default to dark cyberpunk theme
-    document.documentElement.setAttribute('data-theme', 'dark');
   }, []);
 
   useEffect(() => {
@@ -100,44 +154,50 @@ function App() {
   }, [profile]);
 
   useEffect(() => {
-    if (!supabase) return;
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem(STORAGE_THEME_KEY, theme);
+    } catch {
+      // the theme still applies for this visit
+    }
+  }, [theme]);
 
+  useEffect(() => {
     let active = true;
+    let unsubscribe = () => {};
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    // Load the signed-in player's profile, or create it from the local one
+    const loadAccount = async (nextSession: Session | null) => {
       if (!active) return;
-      setSession(data.session);
-
-      if (data.session?.user.id) {
-        const remoteProfile = await fetchProfileFromSupabase(data.session.user.id);
-        if (!active) return;
-
-        if (remoteProfile) {
-          setProfile(remoteProfile);
-          localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(remoteProfile));
-        } else {
-          await syncProfileToSupabase(profileRef.current, data.session.user.id);
-        }
-      }
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession);
+      const userId = nextSession?.user.id;
+      if (!userId) return;
 
-      if (nextSession?.user.id) {
-        const remoteProfile = await fetchProfileFromSupabase(nextSession.user.id);
-        if (remoteProfile) {
-          setProfile(remoteProfile);
-          localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(remoteProfile));
-        } else {
-          await syncProfileToSupabase(profileRef.current, nextSession.user.id);
-        }
+      const remoteProfile = await fetchProfileFromSupabase(userId);
+      if (!active) return;
+      if (remoteProfile) {
+        setProfile(remoteProfile);
+        localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(remoteProfile));
+      } else {
+        await syncProfileToSupabase(profileRef.current, userId);
       }
+    };
+
+    // Follow sign-ins and sign-outs as soon as the Supabase client exists. It is
+    // loaded now only if this browser has a saved session; otherwise it loads when
+    // the player opens sign-in or the leaderboard.
+    whenSupabaseLoads((supabase) => {
+      if (!active) return;
+      const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        void loadAccount(nextSession);
+      });
+      unsubscribe = () => listener.subscription.unsubscribe();
     });
+    if (hasStoredSession()) void getSupabase();
 
     return () => {
       active = false;
-      listener.subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
@@ -149,16 +209,53 @@ function App() {
     void syncProfileToSupabase(updated, session?.user.id);
   };
 
+  // Signed-in players: the server owns points, stats and PRO. The UI updates right away
+  // (optimistically), then takes the server's numbers, or reloads them if a call failed.
+  const applyServerProfile = (row: RemoteProfileRow) => {
+    setProfile((current) => {
+      const updated: UserProfile = {
+        ...current,
+        points: row.points,
+        isPro: row.is_pro,
+        stats: { wins: row.wins, losses: row.losses, draws: row.draws },
+        unlockedSkins: row.is_pro ? ALL_SKINS : current.unlockedSkins,
+      };
+      localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const syncScore = async (call: () => Promise<RemoteProfileRow | null>) => {
+    const userId = session?.user.id;
+    if (!userId) return;
+    const row = await call();
+    if (row) {
+      applyServerProfile(row);
+      return;
+    }
+    const remote = await fetchProfileRowFromSupabase(userId);
+    if (remote) applyServerProfile(remote);
+  };
+
   // Add historical match card
   const handleAddMatchHistory = (match: MatchHistoryItem) => {
     const updatedHistory = [match, ...matchHistory].slice(0, 20); // Keep last 20
     setMatchHistory(updatedHistory);
     localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(updatedHistory));
-    void saveMatchToSupabase(profile, match, session?.user.id);
+    void syncScore(() => recordMatchOnSupabase(match));
+  };
+
+  // Hints and skins cost points; `item` is 'hint' or 'skin:<id>'
+  const handleSpendPoints = (item: string, cost: number, updates: Partial<UserProfile> = {}) => {
+    if (profile.points < cost) return false;
+    handleUpdateProfile({ ...updates, points: profile.points - cost });
+    void syncScore(() => spendPointsOnSupabase(item));
+    return true;
   };
 
   const handleSignOut = async () => {
     playClick();
+    const supabase = await getSupabase();
     await supabase?.auth.signOut();
     setSession(null);
   };
@@ -172,22 +269,16 @@ function App() {
   // Pro features activation
   const handleActivatePro = () => {
     // Unlocks all skins and activates PRO
-    handleUpdateProfile({
-      isPro: true,
-      unlockedSkins: ['cyber-neon', 'retro-arcade', 'space-obsidian', 'royal-gold'],
-    });
+    handleUpdateProfile({ isPro: true, unlockedSkins: ALL_SKINS });
+    void syncScore(activateProOnSupabase);
   };
 
   // Shop item purchase
   const handleUnlockSkin = (skinId: string, price: number) => {
-    if (profile.points >= price) {
-      const updatedSkins = [...profile.unlockedSkins, skinId];
-      handleUpdateProfile({
-        points: profile.points - price,
-        unlockedSkins: updatedSkins,
-        activeSkin: skinId,
-      });
-    }
+    handleSpendPoints(`skin:${skinId}`, price, {
+      unlockedSkins: [...profile.unlockedSkins, skinId],
+      activeSkin: skinId,
+    });
   };
 
   // Shop item equip
@@ -199,7 +290,7 @@ function App() {
   // WebSocket Multiplayer matchmaking orchestrator
   // ----------------------------------------------------
 
-  const connectWebSocket = (customCode: string | null, action: 'create' | 'join') => {
+  const connectWebSocket = (customCode: string | null, action: 'create' | 'join' | 'rejoin') => {
     setConnectionError(null);
     try {
       // Use the hosted server when configured, otherwise the local one on port 5001
@@ -222,14 +313,22 @@ function App() {
             username: profile.username,
             avatar: profile.avatar,
           }));
+        } else if (action === 'rejoin') {
+          const saved = loadSavedRoom();
+          if (saved) ws.send(JSON.stringify({ type: 'rejoin_room', ...saved }));
         }
       };
+
+      // Once in a room, server errors (e.g. "not your turn") are shown but do not disconnect
+      let inRoom = false;
 
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data);
 
         switch (data.type) {
           case 'room_created': {
+            inRoom = true;
+            saveRoom({ roomCode: data.roomCode, token: data.token });
             setRoomCode(data.roomCode);
             setSide('red');
             setChatHistory([]);
@@ -237,10 +336,34 @@ function App() {
           }
 
           case 'room_joined': {
+            inRoom = true;
+            saveRoom({ roomCode: data.roomCode, token: data.token });
             setRoomCode(data.roomCode);
             setSide('yellow');
             setOpponent(data.opponent);
             setChatHistory(data.chatHistory || []);
+            break;
+          }
+
+          case 'room_rejoined': {
+            inRoom = true;
+            setRoomCode(data.roomCode);
+            setSide(data.side);
+            setOpponent(data.opponent);
+            setChatHistory(data.chatHistory || []);
+            setRestoredMoves(data.moves);
+            notify(t('mp.rejoined', { code: data.roomCode }), 'success');
+            break;
+          }
+
+          case 'opponent_disconnected': {
+            playAlert();
+            notify(t('mp.opponentDisconnected', { seconds: data.graceSeconds }), 'info');
+            break;
+          }
+
+          case 'opponent_reconnected': {
+            notify(t('mp.opponentReconnected'), 'success');
             break;
           }
 
@@ -254,6 +377,7 @@ function App() {
             playAlert();
             notify(pickServerText(data.message, lang), 'error');
             // Graceful network exit reset
+            saveRoom(null);
             resetSocketMatch();
             break;
           }
@@ -275,10 +399,18 @@ function App() {
           }
 
           case 'error': {
+            if (action === 'rejoin' && !inRoom) {
+              // The saved room has closed meanwhile: forget it quietly
+              saveRoom(null);
+              ws.close();
+              break;
+            }
             playAlert();
             notify(pickServerText(data.message, lang), 'error');
-            setConnectionError(pickServerText(data.message, lang));
-            ws.close();
+            if (!inRoom) {
+              setConnectionError(pickServerText(data.message, lang));
+              ws.close();
+            }
             break;
           }
         }
@@ -351,10 +483,21 @@ function App() {
   const handleLeaveLobby = () => {
     playClick();
     if (socket) {
+      // Tell the server this is on purpose, so it closes the room instead of holding the seat
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'leave_room' }));
       socket.close();
     }
+    saveRoom(null);
     resetSocketMatch();
   };
+
+  // After a page reload, rejoin the online game this tab was in
+  useEffect(() => {
+    if (rejoinAttempted.current || !loadSavedRoom()) return;
+    rejoinAttempted.current = true;
+    connectWebSocket(null, 'rejoin');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Safe window close handler
   useEffect(() => {
@@ -388,22 +531,26 @@ function App() {
 
       {/* Main content body routing */}
       <main style={{ flex: 1 }}>
-        {coachAnalyses ? (
-          /* Render Coach Panel if game-review mode is active */
-          <CoachPanel
-            analyses={coachAnalyses}
-            isPro={profile.isPro}
-            onOpenPro={() => setIsProOpen(true)}
-            onClose={() => {
-              playClick();
-              setCoachAnalyses(null);
-            }}
-          />
-        ) : (
-          /* Default tab */
+        {/* The game stays mounted (just hidden) during the review, so the finished board is still there afterwards */}
+        {coachAnalyses && (
+          <Suspense fallback={null}>
+            <CoachPanel
+              analyses={coachAnalyses}
+              isPro={profile.isPro}
+              onOpenPro={() => setIsProOpen(true)}
+              onClose={() => {
+                playClick();
+                setCoachAnalyses(null);
+              }}
+            />
+          </Suspense>
+        )}
+        <div hidden={!!coachAnalyses}>
           <GameArea
+            isActive={!coachAnalyses}
             profile={profile}
             onUpdateProfile={handleUpdateProfile}
+            onSpendPoints={handleSpendPoints}
             onAddMatchHistory={handleAddMatchHistory}
             isMuted={isMutedState}
             onOpenPro={() => setIsProOpen(true)}
@@ -421,48 +568,61 @@ function App() {
             onSendRestartConfirm={sendRestartConfirm}
             opponentWantsRestart={opponentWantsRestart}
             connectionError={connectionError}
+            restoredMoves={restoredMoves}
           />
-        )}
+        </div>
       </main>
 
-      {/* MODALS DISPLAY PORTALS */}
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        profile={profile}
-        onUpdateProfile={handleUpdateProfile}
-        matchHistory={matchHistory}
-        accountEmail={session?.user.email ?? null}
-        onOpenAuth={() => setIsAuthOpen(true)}
-        onSignOut={handleSignOut}
-      />
+      {/* Dialogs: each one is downloaded and mounted only while open */}
+      <Suspense fallback={null}>
+        {isProfileOpen && (
+          <ProfileModal
+            isOpen={isProfileOpen}
+            onClose={() => setIsProfileOpen(false)}
+            profile={profile}
+            onUpdateProfile={handleUpdateProfile}
+            matchHistory={matchHistory}
+            accountEmail={session?.user.email ?? null}
+            onOpenAuth={() => setIsAuthOpen(true)}
+            onSignOut={handleSignOut}
+          />
+        )}
 
-      <ProModal
-        isOpen={isProOpen}
-        onClose={() => setIsProOpen(false)}
-        profile={profile}
-        onActivatePro={handleActivatePro}
-      />
+        {isProOpen && (
+          <ProModal
+            isOpen={isProOpen}
+            onClose={() => setIsProOpen(false)}
+            profile={profile}
+            onActivatePro={handleActivatePro}
+          />
+        )}
 
-      <ShopModal
-        isOpen={isShopOpen}
-        onClose={() => setIsShopOpen(false)}
-        profile={profile}
-        onUnlockSkin={handleUnlockSkin}
-        onEquipSkin={handleEquipSkin}
-      />
+        {isShopOpen && (
+          <ShopModal
+            isOpen={isShopOpen}
+            onClose={() => setIsShopOpen(false)}
+            profile={profile}
+            onUnlockSkin={handleUnlockSkin}
+            onEquipSkin={handleEquipSkin}
+          />
+        )}
 
-      <LeaderboardModal
-        isOpen={isLeaderboardOpen}
-        onClose={() => setIsLeaderboardOpen(false)}
-        profile={profile}
-        accountUserId={session?.user.id ?? null}
-      />
+        {isLeaderboardOpen && (
+          <LeaderboardModal
+            isOpen={isLeaderboardOpen}
+            onClose={() => setIsLeaderboardOpen(false)}
+            profile={profile}
+            accountUserId={session?.user.id ?? null}
+          />
+        )}
 
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-      />
+        {isAuthOpen && (
+          <AuthModal
+            isOpen={isAuthOpen}
+            onClose={() => setIsAuthOpen(false)}
+          />
+        )}
+      </Suspense>
 
       {/* Footer bar */}
       <footer className="app-footer">

@@ -46,7 +46,6 @@ export const Header: React.FC<HeaderProps> = ({
     playClick();
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
   };
 
   const toggleLang = () => {

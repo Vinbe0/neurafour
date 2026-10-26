@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, LogIn, Mail, UserPlus, X } from 'lucide-react';
-import { supabase } from '../utils/supabase';
+import { getSupabase } from '../utils/supabase';
 import { playClick, playUnlock } from '../sound';
 import { useI18n } from '../i18n';
 
@@ -24,6 +24,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     event.preventDefault();
     setStatus(null);
 
+    const supabase = await getSupabase();
     if (!supabase) {
       setStatus(t('auth.notConfigured'));
       return;

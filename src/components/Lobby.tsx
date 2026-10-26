@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, Copy, Check, Users, ShieldAlert, ArrowLeft, Loader2, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Copy, Check, Users, ShieldAlert, ArrowLeft, Loader2 } from 'lucide-react';
 import type { UserProfile, ChatMessage } from '../types';
 import { playClick } from '../sound';
 import { useI18n } from '../i18n';
+import { ChatPanel } from './ChatPanel';
 
 interface LobbyProps {
   profile: UserProfile;
@@ -30,15 +31,9 @@ export const Lobby: React.FC<LobbyProps> = ({
   const { t } = useI18n();
   const [inputCode, setInputCode] = useState('');
   const [copied, setCopied] = useState(false);
-  const [chatText, setChatText] = useState('');
   const [connecting, setConnecting] = useState(false);
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto scroll chat
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistory]);
 
   // Read URL search params on mount to auto-fill join code
   useEffect(() => {
@@ -79,13 +74,6 @@ export const Lobby: React.FC<LobbyProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatText.trim()) return;
-    playClick();
-    onSendChatMessage(chatText.trim());
-    setChatText('');
-  };
 
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
@@ -259,100 +247,13 @@ export const Lobby: React.FC<LobbyProps> = ({
 
           </div>
 
-          {/* Right panel: Live Duel Chat room */}
-          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '400px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px', marginBottom: '15px' }}>
-              <MessageSquare className="neon-text-cyan" size={18} />
-              <h4 className="display-font" style={{ fontSize: '0.85rem' }}>
-                {t('lobby.chat')}
-              </h4>
-            </div>
-
-            {/* Chat message thread container */}
-            <div style={{
-              flex: 1,
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-              paddingRight: '4px',
-              marginBottom: '15px'
-            }}>
-              {chatHistory.length === 0 ? (
-                <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.8rem' }}>
-                  {t('lobby.chatEmpty')}
-                </div>
-              ) : (
-                chatHistory.map((msg) => {
-                  const isSelf = msg.username === profile.username;
-                  return (
-                    <div
-                      key={msg.id}
-                      style={{
-                        display: 'flex',
-                        gap: '8px',
-                        alignSelf: isSelf ? 'flex-end' : 'flex-start',
-                        maxWidth: '80%',
-                        flexDirection: isSelf ? 'row-reverse' : 'row'
-                      }}
-                    >
-                      {/* Avatar */}
-                      <div style={{
-                        width: '26px', height: '26px', borderRadius: '50%',
-                        background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '0.85rem', flexShrink: 0,
-                        border: isSelf ? '1px solid var(--accent-pink)' : '1px solid var(--accent-cyan)'
-                      }}>
-                        {msg.avatar}
-                      </div>
-
-                      {/* Text Bubble */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isSelf ? 'flex-end' : 'flex-start' }}>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>
-                          {msg.username} • {msg.time}
-                        </span>
-                        <div style={{
-                          padding: '8px 12px',
-                          borderRadius: '12px',
-                          borderTopRightRadius: isSelf ? '2px' : '12px',
-                          borderTopLeftRadius: isSelf ? '12px' : '2px',
-                          background: isSelf ? 'rgba(255, 0, 127, 0.1)' : 'rgba(0, 240, 255, 0.1)',
-                          border: isSelf ? '1px solid rgba(255, 0, 127, 0.2)' : '1px solid rgba(0, 240, 255, 0.2)',
-                          fontSize: '0.85rem',
-                          color: 'var(--text-primary)',
-                          wordBreak: 'break-word'
-                        }}>
-                          {msg.text}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Input Message Form */}
-            <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                className="cyber-input"
-                placeholder={t('lobby.chatPlaceholder')}
-                value={chatText}
-                onChange={(e) => setChatText(e.target.value)}
-                style={{ fontSize: '0.85rem' }}
-                disabled={!opponent && side === 'red'} // Host cannot chat until opponent joins
-              />
-              <button
-                type="submit"
-                className="glass-button active"
-                style={{ padding: '10px', aspectRatio: '1', width: '42px', height: '42px', justifyContent: 'center' }}
-                disabled={!opponent && side === 'red'}
-              >
-                <Send size={16} />
-              </button>
-            </form>
-          </div>
+          {/* Right panel: room chat */}
+          <ChatPanel
+            messages={chatHistory}
+            ownName={profile.username}
+            onSend={onSendChatMessage}
+            disabled={!opponent && side === 'red'} // the host cannot chat until someone joins
+          />
 
         </div>
       )}
