@@ -84,7 +84,8 @@ describe('engine search', () => {
         expect(normalize(engine.score)).toBe(normalize(referenceMinimax(board, depth, -Infinity, Infinity, true, player)));
       }
     }
-  });
+    // ~3 s locally; slower CI runners need more than Vitest's 5 s default
+  }, 30_000);
 
   it('leaves the input board unchanged', () => {
     const { board, player } = randomPosition(rng(3), 20);
