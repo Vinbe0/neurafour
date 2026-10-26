@@ -85,6 +85,9 @@ const en = {
   'mp.opponentRestart': 'Your opponent wants a rematch',
   'mp.acceptRestart': 'Accept rematch',
   'mp.restartSent': 'Rematch request sent to your opponent.',
+  'mp.rejoined': 'Reconnected to room {code}.',
+  'mp.opponentDisconnected': 'Your opponent lost connection. Waiting {seconds} s for them to come back…',
+  'mp.opponentReconnected': 'Your opponent is back.',
   'mp.serverError': 'Could not reach the multiplayer server. Try again in a moment.',
 
   // Lobby
@@ -309,6 +312,9 @@ const ru: Record<TranslationKey, string> = {
   'mp.opponentRestart': 'Соперник предлагает реванш',
   'mp.acceptRestart': 'Принять реванш',
   'mp.restartSent': 'Запрос на реванш отправлен сопернику.',
+  'mp.rejoined': 'Вы снова в комнате {code}.',
+  'mp.opponentDisconnected': 'Соперник потерял связь. Ждём его {seconds} с…',
+  'mp.opponentReconnected': 'Соперник вернулся.',
   'mp.serverError': 'Не удалось подключиться к серверу мультиплеера. Попробуйте чуть позже.',
 
   'lobby.title': 'Сетевая дуэль',

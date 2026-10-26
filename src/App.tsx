@@ -7,7 +7,7 @@ import { ProModal } from './components/ProModal';
 import { ShopModal } from './components/ShopModal';
 import { LeaderboardModal } from './components/LeaderboardModal';
 import { AuthModal } from './components/AuthModal';
-import type { UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from './types';
+import type { UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage, RoomMove } from './types';
 import { playClick, playAlert, playUnlock, setMuted } from './sound';
 import {
   activateProOnSupabase,
@@ -46,6 +46,32 @@ const loadTheme = (): 'dark' | 'light' => {
     // storage unavailable: fall back to the system setting
   }
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+};
+
+// The online room this tab is in, kept for the session so a page reload can rejoin it
+const STORAGE_ROOM_KEY = 'neurafour_room';
+
+interface SavedRoom {
+  roomCode: string;
+  token: string;
+}
+
+const loadSavedRoom = (): SavedRoom | null => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(STORAGE_ROOM_KEY) ?? 'null');
+    return saved && typeof saved.roomCode === 'string' && typeof saved.token === 'string' ? saved : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveRoom = (room: SavedRoom | null) => {
+  try {
+    if (room) sessionStorage.setItem(STORAGE_ROOM_KEY, JSON.stringify(room));
+    else sessionStorage.removeItem(STORAGE_ROOM_KEY);
+  } catch {
+    // without storage the game still works, it just cannot be rejoined after a reload
+  }
 };
 
 const ALL_SKINS = ['cyber-neon', 'retro-arcade', 'space-obsidian', 'royal-gold'];
@@ -98,6 +124,9 @@ function App() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [opponentWantsRestart, setOpponentWantsRestart] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  // Moves of an online game restored after a page reload, replayed by GameArea
+  const [restoredMoves, setRestoredMoves] = useState<RoomMove[] | null>(null);
+  const rejoinAttempted = useRef(false);
 
   // Load profile progress from LocalStorage on launch
   useEffect(() => {
@@ -260,7 +289,7 @@ function App() {
   // WebSocket Multiplayer matchmaking orchestrator
   // ----------------------------------------------------
 
-  const connectWebSocket = (customCode: string | null, action: 'create' | 'join') => {
+  const connectWebSocket = (customCode: string | null, action: 'create' | 'join' | 'rejoin') => {
     setConnectionError(null);
     try {
       // Use the hosted server when configured, otherwise the local one on port 5001
@@ -283,14 +312,22 @@ function App() {
             username: profile.username,
             avatar: profile.avatar,
           }));
+        } else if (action === 'rejoin') {
+          const saved = loadSavedRoom();
+          if (saved) ws.send(JSON.stringify({ type: 'rejoin_room', ...saved }));
         }
       };
+
+      // Once in a room, server errors (e.g. "not your turn") are shown but do not disconnect
+      let inRoom = false;
 
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data);
 
         switch (data.type) {
           case 'room_created': {
+            inRoom = true;
+            saveRoom({ roomCode: data.roomCode, token: data.token });
             setRoomCode(data.roomCode);
             setSide('red');
             setChatHistory([]);
@@ -298,10 +335,34 @@ function App() {
           }
 
           case 'room_joined': {
+            inRoom = true;
+            saveRoom({ roomCode: data.roomCode, token: data.token });
             setRoomCode(data.roomCode);
             setSide('yellow');
             setOpponent(data.opponent);
             setChatHistory(data.chatHistory || []);
+            break;
+          }
+
+          case 'room_rejoined': {
+            inRoom = true;
+            setRoomCode(data.roomCode);
+            setSide(data.side);
+            setOpponent(data.opponent);
+            setChatHistory(data.chatHistory || []);
+            setRestoredMoves(data.moves);
+            notify(t('mp.rejoined', { code: data.roomCode }), 'success');
+            break;
+          }
+
+          case 'opponent_disconnected': {
+            playAlert();
+            notify(t('mp.opponentDisconnected', { seconds: data.graceSeconds }), 'info');
+            break;
+          }
+
+          case 'opponent_reconnected': {
+            notify(t('mp.opponentReconnected'), 'success');
             break;
           }
 
@@ -315,6 +376,7 @@ function App() {
             playAlert();
             notify(pickServerText(data.message, lang), 'error');
             // Graceful network exit reset
+            saveRoom(null);
             resetSocketMatch();
             break;
           }
@@ -336,10 +398,18 @@ function App() {
           }
 
           case 'error': {
+            if (action === 'rejoin' && !inRoom) {
+              // The saved room has closed meanwhile: forget it quietly
+              saveRoom(null);
+              ws.close();
+              break;
+            }
             playAlert();
             notify(pickServerText(data.message, lang), 'error');
-            setConnectionError(pickServerText(data.message, lang));
-            ws.close();
+            if (!inRoom) {
+              setConnectionError(pickServerText(data.message, lang));
+              ws.close();
+            }
             break;
           }
         }
@@ -412,10 +482,21 @@ function App() {
   const handleLeaveLobby = () => {
     playClick();
     if (socket) {
+      // Tell the server this is on purpose, so it closes the room instead of holding the seat
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'leave_room' }));
       socket.close();
     }
+    saveRoom(null);
     resetSocketMatch();
   };
+
+  // After a page reload, rejoin the online game this tab was in
+  useEffect(() => {
+    if (rejoinAttempted.current || !loadSavedRoom()) return;
+    rejoinAttempted.current = true;
+    connectWebSocket(null, 'rejoin');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Safe window close handler
   useEffect(() => {
@@ -484,6 +565,7 @@ function App() {
             onSendRestartConfirm={sendRestartConfirm}
             opponentWantsRestart={opponentWantsRestart}
             connectionError={connectionError}
+            restoredMoves={restoredMoves}
           />
         </div>
       </main>

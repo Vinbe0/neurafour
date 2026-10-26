@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain, Undo2, Keyboard, ListOrdered, Copy, Check, LogOut } from 'lucide-react';
-import type { PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
+import type { RoomMove, PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
 import { getAvailableRow, isColumnAvailable, ROWS, COLS } from '../rules';
 import { isGameOver as isGameOverState, newGame, playMove, undo, undoTarget } from '../game';
 import type { GameState } from '../game';
@@ -35,6 +35,8 @@ interface GameAreaProps {
   onSendRestartConfirm: () => void;
   opponentWantsRestart: boolean;
   connectionError: string | null;
+  // Set after a page reload: the online game so far, to rebuild the board from
+  restoredMoves: RoomMove[] | null;
 }
 
 const DIFFICULTIES: AIDifficulty[] = ['easy', 'medium', 'hard', 'expert'];
@@ -82,6 +84,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
   onSendRestartConfirm,
   opponentWantsRestart,
   connectionError,
+  restoredMoves,
 }) => {
   const { t } = useI18n();
   const notify = useToast();
@@ -196,6 +199,17 @@ export const GameArea: React.FC<GameAreaProps> = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPlayer, gameMode, winner, isDraw, gameId]);
+
+  // Rejoined an online game after a reload: switch to online mode and replay its moves
+  useEffect(() => {
+    if (!restoredMoves) return;
+    setGameMode('multiplayer');
+    let state = newGame();
+    for (const { column, player } of restoredMoves) {
+      state = playMove(state, column, player)?.state ?? state;
+    }
+    setGame(state);
+  }, [restoredMoves]);
 
   // Keep the newest move visible in the move list
   useEffect(() => {

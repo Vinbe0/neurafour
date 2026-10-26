@@ -1,14 +1,19 @@
 import { expect, test } from '@playwright/test';
+import type { Browser } from '@playwright/test';
 import { dropInColumn, moveList, preparePlayer } from './fixtures';
 
-// Two separate browser contexts play each other through the real multiplayer server
-test('two players create, join and finish an online game', async ({ browser }) => {
+// Two separate browser contexts, so each player has their own storage
+const openTwoPlayers = async (browser: Browser) => {
   const hostContext = await browser.newContext();
   const guestContext = await browser.newContext();
   await preparePlayer(hostContext, 'Alice');
   await preparePlayer(guestContext, 'Bob');
-  const host = await hostContext.newPage();
-  const guest = await guestContext.newPage();
+  return { host: await hostContext.newPage(), guest: await guestContext.newPage(), contexts: [hostContext, guestContext] };
+};
+
+// Two players play each other through the real multiplayer server
+test('two players create, join and finish an online game', async ({ browser }) => {
+  const { host, guest, contexts } = await openTwoPlayers(browser);
 
   // Host creates a room and sees its code while waiting
   await host.goto('/');
@@ -53,6 +58,37 @@ test('two players create, join and finish an online game', async ({ browser }) =
   await expect(host.locator('.status-title')).toHaveText('You win!');
   await expect(guest.locator('.status-title')).toHaveText('Opponent wins');
 
-  await hostContext.close();
-  await guestContext.close();
+  await Promise.all(contexts.map((c) => c.close()));
+});
+
+test('a player who reloads the page rejoins the same game', async ({ browser }) => {
+  const { host, guest, contexts } = await openTwoPlayers(browser);
+
+  await host.goto('/');
+  await host.getByRole('tab', { name: 'Online 1v1' }).click();
+  await host.getByRole('button', { name: 'Create room' }).click();
+  const roomCode = (await host.locator('.lobby-room h2').textContent())?.trim() ?? '';
+  await guest.goto(`/?room=${roomCode}`);
+  await guest.getByRole('button', { name: 'Join', exact: true }).click();
+
+  for (const [page, column] of [[host, 4], [guest, 4], [host, 3]] as const) {
+    await expect(page.locator('.status-title')).toHaveText('Your turn');
+    await dropInColumn(page, column);
+  }
+  await expect(moveList(guest)).toHaveCount(3);
+
+  // Bob's page reloads mid-game
+  await guest.reload();
+  await expect(guest.locator('.room-code')).toHaveText(roomCode);
+  await expect(moveList(guest)).toHaveCount(3);
+  await expect(guest.locator('.player-card.red')).toContainText('Alice');
+  await expect(guest.locator('.status-title')).toHaveText('Your turn');
+  await expect(host.getByText('Your opponent is back.')).toBeVisible();
+
+  // ...and the game carries on for both
+  await dropInColumn(guest, 5);
+  await expect(moveList(host)).toHaveCount(4);
+  await expect(host.locator('.status-title')).toHaveText('Your turn');
+
+  await Promise.all(contexts.map((c) => c.close()));
 });

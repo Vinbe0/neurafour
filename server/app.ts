@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { Server } from 'node:http';
 import express from 'express';
@@ -13,6 +14,10 @@ interface Player {
   username: string;
   avatar: string;
   side: PlayerType;
+  // Secret the browser keeps so it can take this seat back after a page reload
+  token: string;
+  connected: boolean;
+  leaveTimer?: ReturnType<typeof setTimeout>;
 }
 
 interface ChatMessage {
@@ -27,6 +32,8 @@ interface Room {
   code: string;
   players: Player[];
   board: BoardType;
+  // Every move so far, so a reconnecting player can rebuild the game
+  moves: { column: number; player: PlayerType }[];
   turn: PlayerType;
   status: 'playing' | 'finished';
   chat: ChatMessage[];
@@ -64,7 +71,12 @@ export interface GameServer {
   rooms: Map<string, Room>;
 }
 
-export const createGameServer = (): GameServer => {
+export interface GameServerOptions {
+  // How long a disconnected player's seat is kept for them to reconnect
+  reconnectGraceMs?: number;
+}
+
+export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOptions = {}): GameServer => {
   const rooms = new Map<string, Room>();
   const app = express();
 
@@ -77,6 +89,15 @@ export const createGameServer = (): GameServer => {
 
   const broadcast = (room: Room, payload: object) => {
     for (const player of room.players) send(player.ws, payload);
+  };
+
+  const opponentOf = (room: Room, player: Player) => room.players.find((p) => p !== player);
+
+  const closeRoom = (room: Room, leaving: Player) => {
+    const other = opponentOf(room, leaving);
+    if (other) send(other.ws, { type: 'opponent_left', message: ERRORS.opponentLeft });
+    for (const player of room.players) clearTimeout(player.leaveTimer);
+    rooms.delete(room.code);
   };
 
   const generateRoomCode = () => {
@@ -102,17 +123,26 @@ export const createGameServer = (): GameServer => {
       switch (data.type) {
         case 'create_room': {
           const code = generateRoomCode();
+          const token = randomUUID();
           room = {
             code,
-            players: [{ ws, username: cleanText(data.username, MAX_NAME, 'Player'), avatar: cleanText(data.avatar, MAX_AVATAR, '🤖'), side: 'red' }],
+            players: [{
+              ws,
+              username: cleanText(data.username, MAX_NAME, 'Player'),
+              avatar: cleanText(data.avatar, MAX_AVATAR, '🤖'),
+              side: 'red',
+              token,
+              connected: true,
+            }],
             board: createEmptyBoard(),
+            moves: [],
             turn: 'red',
             status: 'playing',
             chat: [],
           };
           side = 'red';
           rooms.set(code, room);
-          send(ws, { type: 'room_created', roomCode: code, side });
+          send(ws, { type: 'room_created', roomCode: code, side, token });
           break;
         }
 
@@ -130,20 +160,59 @@ export const createGameServer = (): GameServer => {
 
           const username = cleanText(data.username, MAX_NAME, 'Player');
           const avatar = cleanText(data.avatar, MAX_AVATAR, '🤖');
+          const token = randomUUID();
           room = target;
           side = 'yellow';
-          room.players.push({ ws, username, avatar, side });
+          room.players.push({ ws, username, avatar, side, token, connected: true });
 
           const host = room.players[0];
           send(ws, {
             type: 'room_joined',
             roomCode: code,
             side,
+            token,
             opponent: { username: host.username, avatar: host.avatar },
             chatHistory: room.chat,
           });
           send(host.ws, { type: 'opponent_joined', opponent: { username, avatar } });
           broadcast(room, { type: 'game_start', turn: 'red' });
+          break;
+        }
+
+        case 'rejoin_room': {
+          const code = cleanText(data.roomCode, 5, '').toUpperCase();
+          const target = rooms.get(code);
+          const player = target?.players.find((p) => p.token === data.token);
+          if (!target || !player) {
+            send(ws, { type: 'error', message: ERRORS.roomNotFound });
+            return;
+          }
+
+          clearTimeout(player.leaveTimer);
+          player.ws = ws;
+          player.connected = true;
+          room = target;
+          side = player.side;
+
+          const other = opponentOf(target, player);
+          send(ws, {
+            type: 'room_rejoined',
+            roomCode: code,
+            side,
+            opponent: other ? { username: other.username, avatar: other.avatar } : null,
+            moves: target.moves,
+            chatHistory: target.chat,
+          });
+          if (other) send(other.ws, { type: 'opponent_reconnected' });
+          break;
+        }
+
+        case 'leave_room': {
+          if (!room) return;
+          const player = room.players.find((p) => p.ws === ws);
+          if (player) closeRoom(room, player);
+          room = null;
+          side = null;
           break;
         }
 
@@ -170,6 +239,7 @@ export const createGameServer = (): GameServer => {
           }
 
           room.board[row][column] = side;
+          room.moves.push({ column, player: side });
           const { winner, cells } = checkWin(room.board);
           const isDraw = !winner && isBoardFull(room.board);
           if (winner || isDraw) room.status = 'finished';
@@ -207,6 +277,7 @@ export const createGameServer = (): GameServer => {
         case 'restart_confirm': {
           if (!room) return;
           room.board = createEmptyBoard();
+          room.moves = [];
           room.turn = 'red';
           room.status = 'playing';
           broadcast(room, { type: 'game_restarted', turn: 'red' });
@@ -215,12 +286,20 @@ export const createGameServer = (): GameServer => {
       }
     });
 
+    // A dropped connection (often just a page reload) keeps the seat for a while;
+    // the room closes only if the player does not come back in time
     ws.on('close', () => {
-      if (!room || rooms.get(room.code) !== room) return;
-      for (const player of room.players) {
-        if (player.ws !== ws) send(player.ws, { type: 'opponent_left', message: ERRORS.opponentLeft });
-      }
-      rooms.delete(room.code);
+      const current = room;
+      if (!current || rooms.get(current.code) !== current) return;
+      const player = current.players.find((p) => p.ws === ws);
+      if (!player) return;
+
+      player.connected = false;
+      const other = opponentOf(current, player);
+      if (other) send(other.ws, { type: 'opponent_disconnected', graceSeconds: Math.round(reconnectGraceMs / 1000) });
+      player.leaveTimer = setTimeout(() => {
+        if (!player.connected && rooms.get(current.code) === current) closeRoom(current, player);
+      }, reconnectGraceMs);
     });
   });
 

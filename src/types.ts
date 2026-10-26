@@ -6,6 +6,12 @@ export type BoardType = CellType[][]; // 6 rows, 7 columns: BoardType[row][col]
 
 export type GameMode = 'local' | 'ai' | 'multiplayer';
 
+// One move of an online game, as the server records it
+export interface RoomMove {
+  column: number;
+  player: PlayerType;
+}
+
 export type AIDifficulty = 'easy' | 'medium' | 'hard' | 'expert';
 
 export type GameStatus = 'lobby' | 'playing' | 'draw' | 'win' | 'analysis';

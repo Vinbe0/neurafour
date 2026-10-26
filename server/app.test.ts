@@ -14,12 +14,15 @@ interface Client {
   close: () => Promise<void>;
 }
 
+// Short grace period so tests about leaving do not wait 30 seconds
+const GRACE_MS = 200;
+
 let game: GameServer;
 let port: number;
 const clients: Client[] = [];
 
 beforeEach(async () => {
-  game = createGameServer();
+  game = createGameServer({ reconnectGraceMs: GRACE_MS });
   await new Promise<void>((resolve) => game.server.listen(0, resolve));
   port = (game.server.address() as AddressInfo).port;
 });
@@ -67,13 +70,13 @@ const connect = async (): Promise<Client> => {
 const startMatch = async () => {
   const host = await connect();
   host.send({ type: 'create_room', username: 'Host', avatar: '🧠' });
-  const { roomCode } = await host.next('room_created');
+  const { roomCode, token: hostToken } = await host.next('room_created');
   const guest = await connect();
   guest.send({ type: 'join_room', roomCode, username: 'Guest', avatar: '👾' });
-  await guest.next('room_joined');
+  const { token: guestToken } = await guest.next('room_joined');
   await host.next('opponent_joined');
   await Promise.all([host.next('game_start'), guest.next('game_start')]);
-  return { host, guest, roomCode: roomCode as string };
+  return { host, guest, roomCode: roomCode as string, hostToken, guestToken };
 };
 
 const move = async (player: Client, others: Client[], column: number) => {
@@ -114,9 +117,18 @@ describe('rooms', () => {
     expect((await third.next('error')).message).toContain('Room is full');
   });
 
-  it('tells the remaining player when the opponent leaves and closes the room', async () => {
+  it('closes the room at once when a player leaves on purpose', async () => {
+    const { host, guest } = await startMatch();
+    host.send({ type: 'leave_room' });
+    expect(await guest.next('opponent_left')).toMatchObject({ type: 'opponent_left' });
+    expect(game.rooms.size).toBe(0);
+  });
+
+  it('closes the room if a disconnected player does not come back in time', async () => {
     const { host, guest } = await startMatch();
     await host.close();
+    expect(await guest.next('opponent_disconnected')).toMatchObject({ graceSeconds: 0 });
+    expect(game.rooms.size).toBe(1);
     expect(await guest.next('opponent_left')).toMatchObject({ type: 'opponent_left' });
     expect(game.rooms.size).toBe(0);
   });
@@ -185,5 +197,44 @@ describe('chat', () => {
     host.send({ type: 'chat', text: 'x'.repeat(1000) });
     const received = await guest.next('chat_received');
     expect((received.message as { text: string }).text).toHaveLength(300);
+  });
+});
+
+describe('reconnecting', () => {
+  it('lets a player who reloaded take their seat back with the full game', async () => {
+    const { host, guest, roomCode, guestToken } = await startMatch();
+    await move(host, [guest], 3);
+    await move(guest, [host], 4);
+    host.send({ type: 'chat', text: 'still there?' });
+    await Promise.all([host.next('chat_received'), guest.next('chat_received')]);
+
+    // The guest's page reloads: old connection drops, a new one rejoins
+    await guest.close();
+    await host.next('opponent_disconnected');
+    const reloaded = await connect();
+    reloaded.send({ type: 'rejoin_room', roomCode, token: guestToken });
+
+    const rejoined = await reloaded.next('room_rejoined');
+    expect(rejoined).toMatchObject({
+      roomCode,
+      side: 'yellow',
+      opponent: { username: 'Host' },
+      moves: [{ column: 3, player: 'red' }, { column: 4, player: 'yellow' }],
+    });
+    expect(rejoined.chatHistory).toHaveLength(1);
+    await host.next('opponent_reconnected');
+
+    // The game carries on, and the room is not closed when the old grace period ends
+    expect(await move(host, [reloaded], 3)).toMatchObject({ row: 4, player: 'red' });
+    await new Promise((resolve) => setTimeout(resolve, GRACE_MS + 100));
+    expect(game.rooms.size).toBe(1);
+    expect(await move(reloaded, [host], 0)).toMatchObject({ player: 'yellow' });
+  });
+
+  it('refuses a rejoin with the wrong token', async () => {
+    const { roomCode } = await startMatch();
+    const intruder = await connect();
+    intruder.send({ type: 'rejoin_room', roomCode, token: 'not-the-token' });
+    expect((await intruder.next('error')).message).toContain('Room not found');
   });
 });
