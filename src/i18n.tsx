@@ -79,6 +79,7 @@ const en = {
   'coachPrompt.title': 'Review with the AI Coach',
   'coachPrompt.body': 'See every move graded, where you missed a win or a block, and what the engine would have played.',
   'coachPrompt.button': 'Open review',
+  'coachPrompt.analyzing': 'Analyzing…',
 
   // Multiplayer in-game
   'mp.opponentRestart': 'Your opponent wants a rematch',
@@ -302,6 +303,7 @@ const ru: Record<TranslationKey, string> = {
   'coachPrompt.title': 'Разбор с ИИ-коучем',
   'coachPrompt.body': 'Оценка каждого хода: где вы упустили победу или защиту и как сыграл бы движок.',
   'coachPrompt.button': 'Открыть разбор',
+  'coachPrompt.analyzing': 'Анализ…',
 
   'mp.opponentRestart': 'Соперник предлагает реванш',
   'mp.acceptRestart': 'Принять реванш',

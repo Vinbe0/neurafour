@@ -7,8 +7,6 @@ import {
   isColumnAvailable,
   checkWin,
   isBoardFull,
-  getBestMove,
-  analyzeMatch,
   ROWS,
   COLS,
 } from '../ai';
@@ -16,6 +14,8 @@ import { playClick, playChipDrop, playWin, playLoss, playAlert } from '../sound'
 import { Lobby } from './Lobby';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
+import { requestAnalysis, requestBestMove } from '../aiClient';
+import type { HistoryStep } from '../aiRequests';
 
 interface GameAreaProps {
   profile: UserProfile;
@@ -38,13 +38,6 @@ interface GameAreaProps {
   onSendRestartConfirm: () => void;
   opponentWantsRestart: boolean;
   connectionError: string | null;
-}
-
-interface HistoryStep {
-  player: PlayerType;
-  column: number;
-  boardBefore: BoardType;
-  boardAfter: BoardType;
 }
 
 const DIFFICULTIES: AIDifficulty[] = ['easy', 'medium', 'hard', 'expert'];
@@ -108,6 +101,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const [hintColumn, setHintColumn] = useState<number | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isHintLoading, setIsHintLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   // Bumped on every reset so a pending AI move from an old game is ignored
   const [gameId, setGameId] = useState(0);
   const gameIdRef = useRef(0);
@@ -188,20 +183,22 @@ export const GameArea: React.FC<GameAreaProps> = ({
     if (gameMode !== 'ai' || currentPlayer !== 'yellow' || winner || isDraw) return;
 
     const startedIn = gameIdRef.current;
+    let cancelled = false;
     setIsAiThinking(true);
-    // Short delay so the AI move is easy to follow
-    const delay = Math.random() * 500 + 350;
+    // Search in the worker, but wait at least a short moment so the AI move is easy to follow
+    const minDelay = new Promise((resolve) => setTimeout(resolve, Math.random() * 500 + 350));
 
-    const timer = setTimeout(() => {
-      if (startedIn !== gameIdRef.current) return;
-      const bestCol = getBestMove(board, difficulty, 'yellow');
+    void Promise.all([requestBestMove(board, difficulty, 'yellow'), minDelay]).then(([bestCol]) => {
+      if (cancelled || startedIn !== gameIdRef.current) return;
       if (bestCol !== -1) {
         executeMove(bestCol, 'yellow');
       }
       setIsAiThinking(false);
-    }, delay);
+    });
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPlayer, gameMode, winner, isDraw, gameId]);
 
@@ -422,8 +419,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
   };
 
   // Minimax tactical Hint
-  const handleGetHint = () => {
-    if (isGameOver || isAiThinking) return;
+  const handleGetHint = async () => {
+    if (isGameOver || isAiThinking || isHintLoading) return;
 
     if (!profile.isPro) {
       if (profile.points < 15) {
@@ -437,8 +434,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
       playClick();
     }
 
-    // Call minimax at max depth
-    const bestMove = getBestMove(board, 'hard', currentPlayer);
+    // Ask the engine (in the worker) what Hard would play here
+    const startedIn = gameIdRef.current;
+    setIsHintLoading(true);
+    const bestMove = await requestBestMove(board, 'hard', currentPlayer);
+    setIsHintLoading(false);
+    if (startedIn !== gameIdRef.current) return;
     setHintColumn(bestMove);
     setTimeout(() => {
       setHintColumn(null);
@@ -454,10 +455,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
   };
 
   // Launch AI Coach commentary timeline
-  const handleOpenCoachPanel = () => {
+  const handleOpenCoachPanel = async () => {
+    if (isAnalyzing) return;
     playClick();
     stopConfetti();
-    const matchEvaluations = analyzeMatch(gameHistory, profile.isPro);
+    setIsAnalyzing(true);
+    const matchEvaluations = await requestAnalysis(gameHistory, profile.isPro);
+    setIsAnalyzing(false);
     onOpenCoach(matchEvaluations);
   };
 
@@ -736,8 +740,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
               <h3 className="display-font">{t('coachPrompt.title')}</h3>
               <p>{t('coachPrompt.body')}</p>
               <div className="coach-cta-actions">
-                <button className="glass-button active" onClick={handleOpenCoachPanel}>
-                  {t('coachPrompt.button')}
+                <button className="glass-button active" onClick={handleOpenCoachPanel} disabled={isAnalyzing}>
+                  {isAnalyzing ? t('coachPrompt.analyzing') : t('coachPrompt.button')}
                 </button>
                 <button className="glass-button" onClick={handleRestart}>
                   <RefreshCw size={14} />
