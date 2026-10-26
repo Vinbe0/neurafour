@@ -1,21 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain, Undo2, Keyboard, ListOrdered, Copy, Check, LogOut } from 'lucide-react';
-import type { BoardType, PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
-import {
-  createEmptyBoard,
-  getAvailableRow,
-  isColumnAvailable,
-  checkWin,
-  isBoardFull,
-  ROWS,
-  COLS,
-} from '../ai';
+import type { PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
+import { getAvailableRow, isColumnAvailable, ROWS, COLS } from '../rules';
+import { isGameOver as isGameOverState, newGame, playMove, undo, undoTarget } from '../game';
+import type { GameState } from '../game';
 import { playClick, playChipDrop, playWin, playLoss, playAlert } from '../sound';
 import { Lobby } from './Lobby';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
 import { requestAnalysis, requestBestMove } from '../aiClient';
-import type { HistoryStep } from '../aiRequests';
 
 interface GameAreaProps {
   profile: UserProfile;
@@ -92,11 +85,9 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const [gameMode, setGameMode] = useState<GameMode>(() => (new URLSearchParams(window.location.search).has('room') ? 'multiplayer' : 'ai'));
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
   const [aiFirst, setAiFirst] = useState(false);
-  const [board, setBoard] = useState<BoardType>(createEmptyBoard());
-  const [currentPlayer, setCurrentPlayer] = useState<PlayerType>('red');
-  const [winner, setWinner] = useState<PlayerType | null>(null);
-  const [winningCells, setWinningCells] = useState<[number, number][]>([]);
-  const [isDraw, setIsDraw] = useState(false);
+  // Board, turn, result and move history; changed only through the functions in game.ts
+  const [game, setGame] = useState<GameState>(() => newGame());
+  const { board, currentPlayer, winner, winningCells, isDraw, history: gameHistory } = game;
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [hintColumn, setHintColumn] = useState<number | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
@@ -107,15 +98,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const [gameId, setGameId] = useState(0);
   const gameIdRef = useRef(0);
 
-  // Turn History (for Coach post-game evaluation, undo and the move list)
-  const [gameHistory, setGameHistory] = useState<HistoryStep[]>([]);
   const moveListRef = useRef<HTMLOListElement | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const confettiParticles = useRef<ConfettiParticle[]>([]);
   const confettiAnimId = useRef<number | null>(null);
 
-  const isGameOver = !!winner || isDraw;
+  const isGameOver = isGameOverState(game);
   // Online: stay on the lobby screen (room code, invite link, chat) until the opponent arrives
   const inLobby = gameMode === 'multiplayer' && (!roomCode || !opponent);
 
@@ -210,39 +199,17 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
   // Execute standard column drop
   const executeMove = (col: number, player: PlayerType) => {
-    const row = getAvailableRow(board, col);
-    if (row === -1) return;
+    const outcome = playMove(game, col, player);
+    if (!outcome) return;
 
-    // Cache pre-move board state for AI Coach
-    const boardBefore = JSON.parse(JSON.stringify(board));
-
-    const updatedBoard = [...board];
-    updatedBoard[row] = [...board[row]];
-    updatedBoard[row][col] = player;
-    setBoard(updatedBoard);
-
-    // Save move to history ledger
-    const boardAfter = JSON.parse(JSON.stringify(updatedBoard));
-    setGameHistory(prev => [...prev, { player, column: col, boardBefore, boardAfter }]);
-
-    // Play synthesized drop sound
-    playChipDrop(row);
-
-    // Reset hints
+    setGame(outcome.state);
+    playChipDrop(outcome.row);
     setHintColumn(null);
 
-    // Check rules
-    const winResult = checkWin(updatedBoard);
-    if (winResult.winner) {
-      setWinner(winResult.winner);
-      setWinningCells(winResult.cells);
-      handleGameEnd(winResult.winner);
-    } else if (isBoardFull(updatedBoard)) {
-      setIsDraw(true);
+    if (outcome.state.winner) {
+      handleGameEnd(outcome.state.winner);
+    } else if (outcome.state.isDraw) {
       handleGameEnd(null);
-    } else {
-      // Alternate turns
-      setCurrentPlayer(player === 'red' ? 'yellow' : 'red');
     }
   };
 
@@ -319,36 +286,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
           const data = JSON.parse(e.data);
 
           if (data.type === 'move_made') {
-            // Apply move made by either me or opponent
-            const { column, player } = data;
-            const row = getAvailableRow(board, column);
-
-            if (row !== -1) {
-              const boardBefore = JSON.parse(JSON.stringify(board));
-              const updatedBoard = [...board];
-              updatedBoard[row] = [...board[row]];
-              updatedBoard[row][column] = player;
-              setBoard(updatedBoard);
-
-              const boardAfter = JSON.parse(JSON.stringify(updatedBoard));
-              setGameHistory(prev => [...prev, { player, column, boardBefore, boardAfter }]);
-
-              playChipDrop(row);
-
-              // Check rules on client sync
-              const winResult = checkWin(updatedBoard);
-              if (winResult.winner) {
-                setWinner(winResult.winner);
-                setWinningCells(winResult.cells);
-                handleGameEnd(winResult.winner);
-              } else if (isBoardFull(updatedBoard)) {
-                setIsDraw(true);
-                handleGameEnd(null);
-              } else {
-                // Alternate turn based on server instructions
-                setCurrentPlayer(player === 'red' ? 'yellow' : 'red');
-              }
-            }
+            // Apply the move the server accepted, made by either me or the opponent
+            executeMove(data.column, data.player);
           } else if (data.type === 'game_restarted') {
             resetLocalGame();
           }
@@ -363,7 +302,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, board, gameMode, side]);
+  }, [socket, game, gameMode, side]);
 
   // Restart match logic
   const handleRestart = () => {
@@ -382,13 +321,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
     stopConfetti();
     gameIdRef.current += 1;
     setGameId(gameIdRef.current);
-    setBoard(createEmptyBoard());
-    setCurrentPlayer(mode === 'ai' && aiStarts ? 'yellow' : 'red');
-    setWinner(null);
-    setWinningCells([]);
-    setIsDraw(false);
+    setGame(newGame(mode === 'ai' && aiStarts ? 'yellow' : 'red'));
     setIsAiThinking(false);
-    setGameHistory([]);
     setHintColumn(null);
   };
 
@@ -399,22 +333,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
   };
 
   // Undo: vs AI rewinds to before your last move (and the AI's reply), locally it removes one move
-  const undoTarget = (() => {
-    if (gameMode === 'multiplayer' || isGameOver || isAiThinking || gameHistory.length === 0) return -1;
-    if (gameMode === 'local') return gameHistory.length - 1;
-    for (let i = gameHistory.length - 1; i >= 0; i--) {
-      if (gameHistory[i].player === 'red') return i;
-    }
-    return -1;
-  })();
+  const canUndo = !isAiThinking && undoTarget(game, gameMode) !== -1;
 
   const handleUndo = () => {
-    if (undoTarget === -1) return;
+    if (!canUndo) return;
     playClick();
-    const step = gameHistory[undoTarget];
-    setBoard(step.boardBefore.map(row => [...row]));
-    setGameHistory(gameHistory.slice(0, undoTarget));
-    setCurrentPlayer(step.player);
+    setGame(undo(game, gameMode));
     setHintColumn(null);
   };
 
@@ -669,7 +593,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
               <button
                 className="glass-button"
                 onClick={handleUndo}
-                disabled={undoTarget === -1}
+                disabled={!canUndo}
                 title={t('controls.undoTitle')}
               >
                 <Undo2 size={15} />
