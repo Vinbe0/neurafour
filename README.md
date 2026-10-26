@@ -1,8 +1,8 @@
 # NeuraFour
 
-[![Deploy](https://github.com/Vinbe0/neurafour/actions/workflows/deploy.yml/badge.svg)](https://github.com/Vinbe0/neurafour/actions/workflows/deploy.yml)
+[![CI](https://github.com/Vinbe0/neurafour/actions/workflows/ci.yml/badge.svg)](https://github.com/Vinbe0/neurafour/actions/workflows/ci.yml) [![Deploy](https://github.com/Vinbe0/neurafour/actions/workflows/deploy.yml/badge.svg)](https://github.com/Vinbe0/neurafour/actions/workflows/deploy.yml)
 
-**Connect Four with a minimax AI, real-time online play, and a coach that reviews your game.**
+**Connect Four with a search engine that looks 14+ moves ahead, real-time online play, and a coach that reviews your game.**
 
 **▶ Play it: [vinbe0.github.io/neurafour](https://vinbe0.github.io/neurafour/)**  ·  [Русская версия](README.ru.md)
 
@@ -10,10 +10,10 @@
 
 ## Features
 
-- **AI opponent, three levels.** Minimax search with alpha-beta pruning. Easy looks 2 moves ahead (with some random play), Medium looks 4 moves ahead, and Hard looks 6.
-- **Online multiplayer.** Create a room, share the 5-letter code, and play a friend in real time over WebSockets, with in-game chat and rematches.
+- **AI opponent, four levels.** Easy looks 2 moves ahead (with some random play), Medium 4, Hard 6, and Expert searches as deep as it can in 750 ms, usually 14+ moves. The search runs in a Web Worker, so the page never freezes while the AI thinks.
+- **Online multiplayer.** Create a room, share the invite link, and play a friend in real time over WebSockets, with chat and rematches. Reloading the page drops you back into the same game.
 - **AI Coach.** After each game, every move is graded (perfect / great / good / mistake / blunder) against the engine's best move. The coach points out missed wins, missed blocks and moves that handed your opponent a win.
-- **Accounts and leaderboard.** Supabase auth, with a global and per-city leaderboard and match history. It works offline too, using a localStorage cache.
+- **Accounts and leaderboard.** Supabase auth, with a global and per-city leaderboard and match history. Scores are computed in the database, not trusted from the browser ([details](#leaderboard-security)). It works offline too, using a localStorage cache.
 - **Progression.** Levels, CyberPoints, a skin shop, and a PRO tier prototype.
 - **English / Russian interface.** A full translation system with a one-click switch. It remembers your choice and defaults to your browser's language.
 - **Play your way.** Keyboard controls (`1`–`7`, or `←`/`→` + `Enter`, and `U` to undo), undo, a choice of who moves first against the AI, a live move list, and a ghost preview of where your token will land.
@@ -21,51 +21,48 @@
 
 ## How the AI works
 
-[`src/ai.ts`](src/ai.ts) does three things:
+[`src/engine.ts`](src/engine.ts) is a game-tree search built for speed:
 
-1. **Tactical checks first.** If the AI can win this move, it plays it. If the opponent can win next move, it blocks.
-2. **Minimax with alpha-beta pruning.** It searches the game tree to a depth set by the difficulty. It tries center columns first (`3, 2, 4, 1, 5, 0, 6`), which makes pruning cut far more branches. A win found sooner scores higher than a win found later.
-3. **Heuristic evaluation.** When the search stops, it scores the board by counting every 4-cell window: open threes and twos for each side, plus a bonus for center control.
+1. **Negamax with alpha-beta pruning.** It tries center columns first (`3, 2, 4, 1, 5, 0, 6`), which lets pruning skip far more branches. A win found sooner scores higher than a win found later.
+2. **Transposition table.** The same position is often reached by different move orders. Each position gets a 53-bit **Zobrist hash**, and its score and best move are stored in a table so they are never searched twice.
+3. **Iterative deepening with a time limit.** Expert searches 1 move ahead, then 2, then 3, and so on, until its 750 ms budget runs out, and plays the best move from the deepest finished search. The table makes each round much faster than the last.
+4. **Incremental evaluation.** The board lives in typed arrays that are updated in place. When a token is played, only the (at most 13) four-cell lines through that cell are re-scored, instead of the whole board.
 
-The AI Coach reuses the same engine. For every move in your game, it compares the move you played with the engine's recommendation and with the position's score before and after.
+On an empty board it reaches 12 moves ahead in about 60 ms and 14 in about 250 ms. The tests check it against a plain minimax: same scores at every depth on hundreds of random positions.
+
+[`src/ai.ts`](src/ai.ts) adds tactical checks on top (take a win, block a loss) and the **AI Coach**, which compares each move you played with the engine's recommendation and the score before and after. Searches run in a **Web Worker** ([`src/ai.worker.ts`](src/ai.worker.ts)), falling back to the main thread if workers are unavailable.
 
 ## Multiplayer architecture
 
 ```
-Browser ──WebSocket──▶ Node server (Express + ws)
+Browser ──WebSocket──▶ Node server (TypeScript, Express + ws)
                         • rooms keyed by 5-letter code
-                        • server owns the board and turn order
-                        • validates every move, detects the winner
+                        • server owns the board, move list and turn order
+                        • validates every move with the same rules module as the browser
+                        • holds a disconnected player's seat for 30 s so they can rejoin
 ```
 
-The server is authoritative. It rejects moves made out of turn, moves into full or invalid columns, and moves after the game ends, so a modified client can't cheat. `GET /health` reports how many rooms are active.
+The server ([`server/app.ts`](server/app.ts)) is authoritative. It rejects moves made out of turn, moves into full or invalid columns, and moves after the game ends, so a modified client can't cheat. It shares [`src/rules.ts`](src/rules.ts) with the browser instead of keeping its own copy, and limits names and chat messages. Each player gets a secret token. After a page reload, the browser uses it to take the seat back and receives the moves and chat so far. `GET /health` reports how many rooms are active.
 
 ## Tech stack
 
-React 19 · TypeScript · Vite · Node.js · Express · `ws` · Supabase (Postgres + Auth, row-level security) · Vitest · GitHub Actions
+React 19 · TypeScript · Vite · Web Workers · Node.js · Express · `ws` · Supabase (Postgres, Auth, row-level security, PL/pgSQL) · Vitest · Playwright · GitHub Actions
 
 ## Testing
 
-```bash
-npm test
-```
+| Command | What it covers |
+| --- | --- |
+| `npm test` | 61 unit tests (Vitest): board rules, the search engine against a reference minimax, AI strength by self-play, the game state module, the AI Coach, and the multiplayer server driven by real WebSocket clients |
+| `npm run test:e2e` | Playwright in Chromium: playing the AI with undo, a keyboard-only game, the coach review, language and theme, every dialog, and two browsers playing an online game, including one reloading mid-game |
+| `npm run test:db` | The Supabase schema and scoring migration on a real Postgres database, including attempts to cheat |
 
-There are 26 unit tests for the game engine and AI, in [`src/ai.test.ts`](src/ai.test.ts). They cover:
-
-- win detection in all four directions
-- the AI taking wins, blocking losses, and preferring a win over a block
-- the Hard AI setting up a double threat
-- never playing into a full column
-- search speed
-- the AI Coach's move grades
-
-CI runs the tests before every deploy.
+[CI](.github/workflows/ci.yml) runs all three on every pull request, and the deploy runs the unit tests again before publishing.
 
 ## Running locally
 
 ```bash
 npm install
-npm run dev        # Vite client + WebSocket server on :5001
+npm run dev        # Vite client + WebSocket server on :5001 (Node 22.18+)
 ```
 
 **Play online locally:** open http://localhost:5173 in two browser windows. In one, choose **Online 1v1 → Create room** and copy the invite link. Open the link in the other window and press **Join**.
