@@ -34,6 +34,20 @@ const pickServerText = (message: string, lang: Lang) => {
   return (lang === 'ru' ? ru : en ?? ru).trim();
 };
 
+const STORAGE_THEME_KEY = 'neurafour_theme';
+
+// Saved choice first, then the system setting; index.html applies the same rule before
+// React loads so the page never flashes the wrong theme
+const loadTheme = (): 'dark' | 'light' => {
+  try {
+    const saved = localStorage.getItem(STORAGE_THEME_KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
+  } catch {
+    // storage unavailable: fall back to the system setting
+  }
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+};
+
 const ALL_SKINS = ['cyber-neon', 'retro-arcade', 'space-obsidian', 'royal-gold'];
 
 const DEFAULT_PROFILE: UserProfile = {
@@ -74,7 +88,7 @@ function App() {
 
   // Control configurations
   const [isMutedState, setIsMutedState] = useState(false);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(loadTheme);
 
   // WebSocket Multiplayer Networking
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -101,13 +115,20 @@ function App() {
       console.error('Failed to load local storage save progress', e);
     }
 
-    // Default to dark cyberpunk theme
-    document.documentElement.setAttribute('data-theme', 'dark');
   }, []);
 
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem(STORAGE_THEME_KEY, theme);
+    } catch {
+      // the theme still applies for this visit
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (!supabase) return;

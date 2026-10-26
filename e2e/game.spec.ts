@@ -40,3 +40,14 @@ test('the language switch translates the interface', async ({ page }) => {
   await expect(page.locator('.status-title')).toHaveText('Ваш ход');
   await expect(page.getByRole('tab', { name: 'Против ИИ' })).toBeVisible();
 });
+
+test('the theme follows the system setting until the player picks one', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.getByRole('button', { name: 'Light theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.getByRole('button', { name: 'Dark theme' })).toBeVisible();
+});

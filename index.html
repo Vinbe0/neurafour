@@ -12,6 +12,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
     <title>NEURAFOUR — AI Strategy Arena | Connect Four</title>
+
+    <!-- Apply the saved (or system) theme before the app loads, so there is no flash -->
+    <script>
+      try {
+        var saved = localStorage.getItem('neurafour_theme');
+        var theme = saved === 'dark' || saved === 'light' ? saved
+          : window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
