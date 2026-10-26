@@ -23,4 +23,11 @@ export default defineConfig([
       'react-hooks/immutability': 'off',
     },
   },
+  {
+    // The multiplayer server runs in Node, not the browser
+    files: ['server/**/*.ts'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ])
