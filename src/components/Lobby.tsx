@@ -118,8 +118,9 @@ export const Lobby: React.FC<LobbyProps> = ({
                   {t('lobby.joinTitle')}
                 </h3>
                 <form onSubmit={handleJoin}>
-                  <label className="cyber-label" style={{ fontSize: '0.65rem' }}>{t('lobby.roomCode')}</label>
+                  <label className="cyber-label" style={{ fontSize: '0.65rem' }} htmlFor="lobby-room-code">{t('lobby.roomCode')}</label>
                   <input
+                    id="lobby-room-code"
                     type="text"
                     maxLength={5}
                     value={inputCode}

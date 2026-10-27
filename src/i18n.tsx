@@ -231,6 +231,7 @@ const en = {
   'lb.offline': 'Offline mode: only your local profile is shown.',
   'lb.search': 'Search players…',
   'lb.global': '🌍 Global',
+  'lb.city': 'City',
   'lb.yourScore': 'Your score',
   'lb.none': 'No players found.',
 
@@ -451,6 +452,7 @@ const ru: Record<TranslationKey, string> = {
   'lb.offline': 'Офлайн-режим: показан только ваш локальный профиль.',
   'lb.search': 'Поиск игроков…',
   'lb.global': '🌍 Весь мир',
+  'lb.city': 'Город',
   'lb.yourScore': 'Ваши очки',
   'lb.none': 'Игроки не найдены.',
 
