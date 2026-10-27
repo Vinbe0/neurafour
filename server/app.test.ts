@@ -199,6 +199,8 @@ describe('chat', () => {
     guest.send({ type: 'chat', username: 'Host', text: '  gl hf  ' });
     const [toHost] = await Promise.all([host.next('chat_received'), guest.next('chat_received')]);
     expect(toHost.message).toMatchObject({ username: 'Guest', text: 'gl hf' });
+    // A timestamp, not preformatted text, so each player sees their own time zone
+    expect((toHost.message as { sentAt: number }).sentAt).toBeCloseTo(Date.now(), -4);
   });
 
   it('limits message length and ignores empty messages', async () => {

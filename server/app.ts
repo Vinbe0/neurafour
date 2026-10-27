@@ -4,7 +4,7 @@ import type { IncomingMessage, Server } from 'node:http';
 import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { checkWin, createEmptyBoard, getAvailableRow, isBoardFull, COLS } from '../src/rules.ts';
-import type { BoardType, PlayerType } from '../src/types.ts';
+import type { BoardType, ChatMessage, PlayerType } from '../src/types.ts';
 import { ERROR_MESSAGES } from '../src/protocol.ts';
 import type { ErrorCode } from '../src/protocol.ts';
 
@@ -20,14 +20,6 @@ interface Player {
   token: string;
   connected: boolean;
   leaveTimer?: ReturnType<typeof setTimeout>;
-}
-
-interface ChatMessage {
-  id: string;
-  username: string;
-  avatar: string;
-  text: string;
-  time: string;
 }
 
 interface Room {
@@ -344,7 +336,7 @@ export const createGameServer = ({
             username: sender?.username ?? 'Player',
             avatar: sender?.avatar ?? '🤖',
             text,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            sentAt: Date.now(),
           };
           room.chat.push(message);
           if (room.chat.length > CHAT_HISTORY) room.chat.shift();

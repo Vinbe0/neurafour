@@ -63,7 +63,10 @@ export interface ChatMessage {
   username: string;
   avatar: string;
   text: string;
-  time: string;
+  // When the server received it (ms since 1970); each player sees it in their own time zone
+  sentAt?: number;
+  // Preformatted time from older servers
+  time?: string;
 }
 
 export interface LeaderboardItem {

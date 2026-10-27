@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageSquare, Send } from 'lucide-react';
 import type { ChatMessage } from '../types';
 import { playClick } from '../sound';
@@ -16,8 +16,10 @@ interface ChatPanelProps {
 
 // Room chat, used in the lobby while waiting and next to the board during an online game
 export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, ownName, onSend, disabled = false, compact = false }) => {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [text, setText] = useState('');
+  const timeFormat = useMemo(() => new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }), [lang]);
+  const timeOf = (msg: ChatMessage) => (msg.sentAt ? timeFormat.format(msg.sentAt) : msg.time ?? '');
   const listRef = useRef<HTMLDivElement>(null);
 
   // Keep the newest message in view without scrolling the whole page
@@ -51,7 +53,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, ownName, onSend,
               <div key={msg.id} className={`chat-message ${isSelf ? 'self' : ''}`}>
                 <span className="chat-avatar">{msg.avatar}</span>
                 <div>
-                  <span className="chat-meta">{msg.username} • {msg.time}</span>
+                  <span className="chat-meta">{msg.username} • {timeOf(msg)}</span>
                   <p className="chat-bubble">{msg.text}</p>
                 </div>
               </div>
