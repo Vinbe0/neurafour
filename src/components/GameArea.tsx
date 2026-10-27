@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain, Undo2, Keyboard, ListOrdered, Copy, Check, LogOut } from 'lucide-react';
+import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain, Undo2, Keyboard } from 'lucide-react';
 import type { RoomMove, PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
-import { getAvailableRow, isColumnAvailable, ROWS, COLS } from '../rules';
+import { isColumnAvailable } from '../rules';
 import { isGameOver as isGameOverState, newGame, playMove, undo, undoTarget } from '../game';
 import type { GameState } from '../game';
 import { playClick, playChipDrop, playWin, playLoss, playAlert } from '../sound';
@@ -10,6 +10,14 @@ import { ChatPanel } from './ChatPanel';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
 import { requestAnalysis, requestBestMove } from '../aiClient';
+import { useConfetti } from '../hooks/useConfetti';
+import { useKeyboardControls } from '../hooks/useKeyboardControls';
+import { Board } from './game/Board';
+import { StatusCard } from './game/StatusCard';
+import type { PlayerLabel } from './game/StatusCard';
+import { AISettings } from './game/AISettings';
+import { RoomBar } from './game/RoomBar';
+import { MoveList } from './game/MoveList';
 
 interface GameAreaProps {
   // False while another screen (the AI Coach) covers the game; keyboard controls pause
@@ -39,30 +47,8 @@ interface GameAreaProps {
   restoredMoves: RoomMove[] | null;
 }
 
-const DIFFICULTIES: AIDifficulty[] = ['easy', 'medium', 'hard', 'expert'];
-
 // CyberPoints for beating the AI at each level
 const WIN_BONUS: Record<AIDifficulty, number> = { easy: 10, medium: 20, hard: 50, expert: 80 };
-
-interface ConfettiParticle {
-  x: number;
-  y: number;
-  r: number;
-  color: string;
-  tilt: number;
-  tiltAngleIncremental: number;
-  tiltAngle: number;
-}
-
-const makeConfettiParticle = (width: number, height: number): ConfettiParticle => ({
-  x: Math.random() * width,
-  y: Math.random() * height - height,
-  r: Math.random() * 6 + 4,
-  color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-  tilt: Math.random() * 10 - 5,
-  tiltAngleIncremental: Math.random() * 0.07 + 0.02,
-  tiltAngle: 0,
-});
 
 export const GameArea: React.FC<GameAreaProps> = ({
   isActive,
@@ -100,81 +86,17 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [hintColumn, setHintColumn] = useState<number | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [isHintLoading, setIsHintLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   // Bumped on every reset so a pending AI move from an old game is ignored
   const [gameId, setGameId] = useState(0);
   const gameIdRef = useRef(0);
 
-  const moveListRef = useRef<HTMLOListElement | null>(null);
-
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const confettiParticles = useRef<ConfettiParticle[]>([]);
-  const confettiAnimId = useRef<number | null>(null);
+  const { canvasRef, start: startConfetti, stop: stopConfetti } = useConfetti();
 
   const isGameOver = isGameOverState(game);
   // Online: stay on the lobby screen (room code, invite link, chat) until the opponent arrives
   const inLobby = gameMode === 'multiplayer' && (!roomCode || !opponent);
-
-  // Canvas Confetti Win Celebration
-  const startConfetti = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    confettiParticles.current = Array.from({ length: 150 }, () => makeConfettiParticle(canvas.width, canvas.height));
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      confettiParticles.current.forEach((p, idx) => {
-        p.tiltAngle += p.tiltAngleIncremental;
-        p.y += (p.r + 2) / 3;
-        p.tilt = Math.sin(p.tiltAngle) * 12;
-
-        ctx.beginPath();
-        ctx.lineWidth = p.r / 2;
-        ctx.strokeStyle = p.color;
-        ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
-        ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
-        ctx.stroke();
-
-        // Recycle particles falling off-screen
-        if (p.y > canvas.height) {
-          confettiParticles.current[idx] = { ...makeConfettiParticle(canvas.width, canvas.height), y: -20 };
-        }
-      });
-      confettiAnimId.current = requestAnimationFrame(draw);
-    };
-
-    draw();
-    // Stop on its own so it never runs forever in the background
-    setTimeout(stopConfetti, 5000);
-  };
-
-  const stopConfetti = () => {
-    if (confettiAnimId.current) {
-      cancelAnimationFrame(confettiAnimId.current);
-      confettiAnimId.current = null;
-    }
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      ctx?.clearRect(0, 0, canvas.width, canvas.height);
-    }
-  };
-
-  // Clean up canvas
-  useEffect(() => {
-    return () => {
-      stopConfetti();
-    };
-  }, []);
 
   // AI Turn Execution
   useEffect(() => {
@@ -210,12 +132,6 @@ export const GameArea: React.FC<GameAreaProps> = ({
     }
     setGame(state);
   }, [restoredMoves]);
-
-  // Keep the newest move visible in the move list
-  useEffect(() => {
-    const list = moveListRef.current;
-    if (list) list.scrollTop = list.scrollHeight;
-  }, [gameHistory.length]);
 
   // Execute standard column drop
   const executeMove = (col: number, player: PlayerType) => {
@@ -392,14 +308,6 @@ export const GameArea: React.FC<GameAreaProps> = ({
     }, 4000); // hint disappears after 4 seconds
   };
 
-  const handleCopyInvite = () => {
-    if (!roomCode) return;
-    playClick();
-    void navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?room=${roomCode}`);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
-  };
-
   // Launch AI Coach commentary timeline
   const handleOpenCoachPanel = async () => {
     if (isAnalyzing) return;
@@ -414,32 +322,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const canPlayNow = !isGameOver && !isAiThinking
     && (gameMode === 'local' || (gameMode === 'ai' && currentPlayer === 'red') || (gameMode === 'multiplayer' && !!roomCode && currentPlayer === side));
 
-  // Keyboard controls: 1-7 drop, arrows + Enter/Space choose and drop, U undo
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
-      if (!isActive || document.querySelector('.modal-overlay')) return;
-      if (inLobby) return;
-
-      if (e.key >= '1' && e.key <= String(COLS)) {
-        e.preventDefault();
-        handleColumnClick(Number(e.key) - 1);
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        const step = e.key === 'ArrowLeft' ? -1 : 1;
-        setHoveredCol(prev => (((prev ?? Math.floor(COLS / 2) - step) + step + COLS) % COLS));
-      } else if ((e.key === 'Enter' || e.key === ' ') && hoveredCol !== null && target?.tagName !== 'BUTTON') {
-        e.preventDefault();
-        handleColumnClick(hoveredCol);
-      } else if (e.key.toLowerCase() === 'u') {
-        handleUndo();
-      }
-    };
-
-    // Re-subscribed every render so the handler always sees the current board
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+  useKeyboardControls({
+    enabled: isActive && !inLobby,
+    selectedColumn: hoveredCol,
+    onSelect: setHoveredCol,
+    onPlay: handleColumnClick,
+    onUndo: handleUndo,
   });
 
   return (
@@ -486,118 +374,47 @@ export const GameArea: React.FC<GameAreaProps> = ({
     </div>
   );
 
-  // Helper render of Connect Four Grid
-  function renderMatchBoard() {
-    // Check active skin classes
-    const activeSkin = profile.activeSkin;
-    let skinClass = 'skin-neon';
-    if (activeSkin === 'retro-arcade') skinClass = 'skin-retro';
-    if (activeSkin === 'space-obsidian') skinClass = 'skin-obsidian';
-    if (activeSkin === 'royal-gold') skinClass = 'skin-gold';
+  // Names shown for each colour
+  function playerLabels(): Record<PlayerType, PlayerLabel> {
+    const me = { name: profile.username, avatar: profile.avatar };
+    const them = { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || '🤖' };
+    if (gameMode === 'multiplayer') return side === 'red' ? { red: me, yellow: them } : { red: them, yellow: me };
+    if (gameMode === 'local') return { red: { name: t('player.red'), avatar: profile.avatar }, yellow: { name: t('player.blue'), avatar: '👤' } };
+    return { red: me, yellow: { name: `${t('player.ai')} · ${t(`settings.${difficulty}`)}`, avatar: '🧠' } };
+  }
 
-    const isRedTurn = currentPlayer === 'red';
-
-    // Names shown for each colour
-    const redPlayer = gameMode === 'multiplayer'
-      ? (side === 'red' ? { name: profile.username, avatar: profile.avatar } : { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || '🤖' })
-      : gameMode === 'local'
-      ? { name: t('player.red'), avatar: profile.avatar }
-      : { name: profile.username, avatar: profile.avatar };
-    const bluePlayer = gameMode === 'multiplayer'
-      ? (side === 'yellow' ? { name: profile.username, avatar: profile.avatar } : { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || '🤖' })
-      : gameMode === 'local'
-      ? { name: t('player.blue'), avatar: '👤' }
-      : { name: `${t('player.ai')} · ${t(`settings.${difficulty}`)}`, avatar: '🧠' };
-
-    let statusText: string;
+  function statusText(): string {
     if (winner) {
-      if (gameMode === 'local') {
-        statusText = winner === 'red' ? t('status.redWins') : t('status.blueWins');
-      } else if (gameMode === 'ai') {
-        statusText = winner === 'red' ? t('status.youWin') : t('status.aiWins');
-      } else {
-        statusText = winner === side ? t('status.youWin') : t('status.opponentWins');
-      }
-    } else if (isDraw) {
-      statusText = t('status.draw');
-    } else if (gameMode === 'ai') {
-      statusText = isRedTurn ? t('status.yourTurn') : t('status.aiThinking');
-    } else if (gameMode === 'local') {
-      statusText = isRedTurn ? t('status.redTurn') : t('status.blueTurn');
-    } else {
-      statusText = currentPlayer === side ? t('status.yourTurn') : t('status.opponentTurn');
+      if (gameMode === 'local') return winner === 'red' ? t('status.redWins') : t('status.blueWins');
+      if (gameMode === 'ai') return winner === 'red' ? t('status.youWin') : t('status.aiWins');
+      return winner === side ? t('status.youWin') : t('status.opponentWins');
     }
+    if (isDraw) return t('status.draw');
+    if (gameMode === 'ai') return currentPlayer === 'red' ? t('status.yourTurn') : t('status.aiThinking');
+    if (gameMode === 'local') return currentPlayer === 'red' ? t('status.redTurn') : t('status.blueTurn');
+    return currentPlayer === side ? t('status.yourTurn') : t('status.opponentTurn');
+  }
 
-    const statusTone = isDraw ? 'draw' : (winner ?? currentPlayer);
-    const previewCol = canPlayNow && hoveredCol !== null && isColumnAvailable(board, hoveredCol) ? hoveredCol : null;
-    const previewRow = previewCol !== null ? getAvailableRow(board, previewCol) : -1;
-    const lastMove = gameHistory[gameHistory.length - 1];
-
-    const playerName = (player: PlayerType) => (player === 'red' ? redPlayer.name : bluePlayer.name);
+  function renderMatchBoard() {
+    const players = playerLabels();
 
     return (
       <div className="match-layout">
-
-        {/* Playable Connect Four Board area */}
         <div className="board-column">
-
-          <div className={`c4-board-wrapper ${canPlayNow ? '' : 'board-waiting'}`}>
-            <div className={`c4-board ${skinClass}`} onMouseLeave={() => setHoveredCol(null)}>
-
-              {/* Column buttons: hover/focus target and screen-reader control */}
-              {Array(COLS).fill(null).map((_, c) => (
-                <button
-                  key={`indicator-${c}`}
-                  className={`column-indicator ${hoveredCol === c ? 'is-active' : ''} ${hintColumn === c ? 'is-hint' : ''}`}
-                  style={{
-                    gridColumn: c + 1,
-                    '--indicator-color': hintColumn === c
-                      ? 'var(--accent-green)'
-                      : isRedTurn
-                      ? 'var(--accent-pink)'
-                      : 'var(--accent-cyan)'
-                  } as React.CSSProperties}
-                  onClick={() => handleColumnClick(c)}
-                  onMouseEnter={() => setHoveredCol(c)}
-                  onFocus={() => setHoveredCol(c)}
-                  aria-label={t('moves.column', { col: c + 1 })}
-                  disabled={!isColumnAvailable(board, c)}
-                >
-                  <span className="column-number">{c + 1}</span>
-                  <div className="column-indicator-circle" />
-                </button>
-              ))}
-
-              {/* Renders cells 6 rows, 7 cols */}
-              {Array(ROWS).fill(null).map((_, r) => (
-                Array(COLS).fill(null).map((_, c) => {
-                  const cell = board[r][c];
-                  const isWinning = winningCells.some(([wr, wc]) => wr === r && wc === c);
-                  const isLast = lastMove && !isGameOver && getAvailableRow(lastMove.boardBefore, lastMove.column) === r && lastMove.column === c;
-                  const isPreview = previewCol === c && previewRow === r;
-
-                  return (
-                    <div
-                      key={`${r}-${c}`}
-                      className={`c4-cell ${isWinning ? 'winning-cell' : ''} ${hoveredCol === c ? 'c4-col-hovered' : ''} ${isGameOver && !isWinning && winner ? 'dimmed' : ''}`}
-                      style={{ gridRow: r + 2, gridColumn: c + 1 }}
-                      onClick={() => handleColumnClick(c)}
-                      onMouseEnter={() => setHoveredCol(c)}
-                    >
-                      {cell && (
-                        <div
-                          className={`c4-token ${cell} ${isLast ? 'last-move' : ''}`}
-                          style={{ '--drop-row': r } as React.CSSProperties}
-                        />
-                      )}
-                      {!cell && isPreview && <div className={`c4-token ghost ${currentPlayer}`} />}
-                    </div>
-                  );
-                })
-              ))}
-
-            </div>
-          </div>
+          <Board
+            board={board}
+            skin={profile.activeSkin}
+            currentPlayer={currentPlayer}
+            winner={winner}
+            winningCells={winningCells}
+            isGameOver={isGameOver}
+            lastMove={gameHistory[gameHistory.length - 1]}
+            canPlay={canPlayNow}
+            hoveredColumn={hoveredCol}
+            hintColumn={hintColumn}
+            onHover={setHoveredCol}
+            onColumnClick={handleColumnClick}
+          />
 
           {/* Controls: hint, undo, restart */}
           <div className="board-controls">
@@ -612,12 +429,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
             </button>
 
             {gameMode !== 'multiplayer' && (
-              <button
-                className="glass-button"
-                onClick={handleUndo}
-                disabled={!canUndo}
-                title={t('controls.undoTitle')}
-              >
+              <button className="glass-button" onClick={handleUndo} disabled={!canUndo} title={t('controls.undoTitle')}>
                 <Undo2 size={15} />
                 <span>{t('controls.undo')}</span>
               </button>
@@ -635,49 +447,17 @@ export const GameArea: React.FC<GameAreaProps> = ({
           </p>
         </div>
 
-        {/* Right Side: status, settings, move list */}
         <div className="side-column">
+          {gameMode === 'multiplayer' && roomCode && <RoomBar roomCode={roomCode} onLeave={onLeaveLobby} />}
 
-          {/* Online room info stays visible during the game */}
-          {gameMode === 'multiplayer' && roomCode && (
-            <section className="glass-panel room-card">
-              <div>
-                <span className="panel-label">{t('lobby.room')}</span>
-                <strong className="room-code">{roomCode}</strong>
-              </div>
-              <div className="room-actions">
-                <button className="glass-button" onClick={handleCopyInvite} title={t('lobby.copy')} aria-label={t('lobby.copy')}>
-                  {linkCopied ? <Check size={14} /> : <Copy size={14} />}
-                </button>
-                <button className="glass-button" onClick={onLeaveLobby} title={t('lobby.leave')} aria-label={t('lobby.leave')}>
-                  <LogOut size={14} />
-                </button>
-              </div>
-            </section>
-          )}
-
-          {/* Turn status Card */}
-          <section className={`status-card glass-panel tone-${statusTone}`} aria-live="polite">
-            <span className="panel-label">{t('status.label')}</span>
-            <h2 className="status-title display-font">
-              {statusText}
-              {isAiThinking && <span className="thinking-dots" aria-hidden="true"><i /><i /><i /></span>}
-            </h2>
-
-            <div className="player-cards">
-              {([['red', redPlayer], ['yellow', bluePlayer]] as const).map(([color, player]) => {
-                const active = !isGameOver && currentPlayer === color;
-                const won = winner === color;
-                return (
-                  <div key={color} className={`player-card ${color} ${active ? 'active' : ''} ${won ? 'won' : ''}`}>
-                    <span className="player-avatar">{player.avatar}</span>
-                    <span className="player-name">{player.name}</span>
-                    <span className={`player-chip-dot ${color}`} />
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+          <StatusCard
+            text={statusText()}
+            tone={isDraw ? 'draw' : (winner ?? currentPlayer)}
+            isThinking={isAiThinking}
+            players={players}
+            activePlayer={isGameOver ? null : currentPlayer}
+            winner={winner}
+          />
 
           {/* Post-game: AI Coach + play again */}
           {isGameOver && gameHistory.length > 0 && (
@@ -697,50 +477,22 @@ export const GameArea: React.FC<GameAreaProps> = ({
             </section>
           )}
 
-          {/* AI settings */}
           {gameMode === 'ai' && (
-            <section className="glass-panel settings-card">
-              <span className="panel-label">{t('settings.difficulty')}</span>
-              <div className="segmented">
-                {DIFFICULTIES.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => { playClick(); setDifficulty(d); resetLocalGame(); }}
-                    className={difficulty === d ? 'selected' : ''}
-                    aria-pressed={difficulty === d}
-                  >
-                    {t(`settings.${d}`)}
-                  </button>
-                ))}
-              </div>
-
-              <span className="panel-label">{t('settings.firstMove')}</span>
-              <div className="segmented">
-                {([false, true] as const).map((value) => (
-                  <button
-                    key={String(value)}
-                    onClick={() => { playClick(); setAiFirst(value); resetLocalGame({ aiStarts: value }); }}
-                    className={aiFirst === value ? 'selected' : ''}
-                    aria-pressed={aiFirst === value}
-                  >
-                    {value ? t('settings.aiFirst') : t('settings.youFirst')}
-                  </button>
-                ))}
-              </div>
-            </section>
+            <AISettings
+              difficulty={difficulty}
+              aiFirst={aiFirst}
+              onDifficultyChange={(d) => { playClick(); setDifficulty(d); resetLocalGame(); }}
+              onFirstMoveChange={(value) => { playClick(); setAiFirst(value); resetLocalGame({ aiStarts: value }); }}
+            />
           )}
 
-          {/* Multiplayer Restart request overlays */}
           {gameMode === 'multiplayer' && roomCode && opponentWantsRestart && (
             <section className="glass-panel rematch-card">
               <div>
                 <AlertTriangle size={14} />
                 <span>{t('mp.opponentRestart')}</span>
               </div>
-              <button
-                className="glass-button active"
-                onClick={() => { playClick(); onSendRestartConfirm(); }}
-              >
+              <button className="glass-button active" onClick={() => { playClick(); onSendRestartConfirm(); }}>
                 {t('mp.acceptRestart')}
               </button>
             </section>
@@ -751,27 +503,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
             <ChatPanel compact messages={chatHistory} ownName={profile.username} onSend={onSendChatMessage} />
           )}
 
-          {/* Move list */}
-          <section className="glass-panel moves-card">
-            <span className="panel-label"><ListOrdered size={13} /> {t('moves.title')}</span>
-            {gameHistory.length === 0 ? (
-              <p className="moves-empty">{t('moves.empty')}</p>
-            ) : (
-              <ol className="move-list" ref={moveListRef}>
-                {gameHistory.map((step, i) => (
-                  <li key={i} className={i === gameHistory.length - 1 ? 'latest' : ''}>
-                    <span className="move-number">{i + 1}</span>
-                    <span className={`player-chip-dot ${step.player}`} />
-                    <span className="move-player">{playerName(step.player)}</span>
-                    <span className="move-col">{t('moves.column', { col: step.column + 1 })}</span>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
-
+          <MoveList history={gameHistory} playerName={(player) => players[player].name} />
         </div>
-
       </div>
     );
   }
