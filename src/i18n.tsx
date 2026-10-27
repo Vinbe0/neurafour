@@ -95,6 +95,8 @@ const en = {
   'error.game_over': 'The game is already over.',
   'error.invalid_column': 'That column does not exist.',
   'error.column_full': 'That column is full.',
+  'error.already_in_room': 'You are already in a room. Leave it first.',
+  'error.server_busy': 'The server is full right now. Try again in a few minutes.',
   'mp.serverError': 'Could not reach the multiplayer server. Try again in a moment.',
 
   // Lobby
@@ -330,6 +332,8 @@ const ru: Record<TranslationKey, string> = {
   'error.game_over': 'Партия уже закончилась.',
   'error.invalid_column': 'Такой колонки нет.',
   'error.column_full': 'Эта колонка заполнена.',
+  'error.already_in_room': 'Вы уже в комнате. Сначала выйдите из неё.',
+  'error.server_busy': 'Сервер сейчас заполнен. Попробуйте через несколько минут.',
   'mp.serverError': 'Не удалось подключиться к серверу мультиплеера. Попробуйте чуть позже.',
 
   'lobby.title': 'Сетевая дуэль',

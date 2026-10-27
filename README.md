@@ -42,7 +42,7 @@ Browser ──WebSocket──▶ Node server (TypeScript, Express + ws)
                         • holds a disconnected player's seat for 30 s so they can rejoin
 ```
 
-The server ([`server/app.ts`](server/app.ts)) is authoritative. It rejects moves made out of turn, moves into full or invalid columns, and moves after the game ends, so a modified client can't cheat. It shares [`src/rules.ts`](src/rules.ts) with the browser instead of keeping its own copy, and limits names and chat messages. Each player gets a secret token. After a page reload, the browser uses it to take the seat back and receives the moves and chat so far. `GET /health` reports how many rooms are active.
+The server ([`server/app.ts`](server/app.ts)) is authoritative and defensive: it accepts connections only from allowed websites, limits connections per address, message size and message rate, caps the number of rooms, pings every connection to drop dead ones, and only lets the *other* player accept a rematch. It rejects moves made out of turn, moves into full or invalid columns, and moves after the game ends, so a modified client can't cheat. It shares [`src/rules.ts`](src/rules.ts) with the browser instead of keeping its own copy, and limits names and chat messages. Each player gets a secret token. After a page reload, the browser uses it to take the seat back and receives the moves and chat so far. `GET /health` reports how many rooms are active.
 
 ## Tech stack
 
@@ -94,4 +94,4 @@ Results are still reported by the browser, since the server does not replay game
 ## Deployment
 
 - **Frontend:** GitHub Pages, deployed by [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) on every push to `main`. The workflow reads the `VITE_*` values from the repo's Actions variables.
-- **Multiplayer server:** Render, defined in [`render.yaml`](render.yaml) (free web service, health check on `/health`).
+- **Multiplayer server:** Render, defined in [`render.yaml`](render.yaml) (free web service, health check on `/health`). `ALLOWED_ORIGINS` limits which websites may connect (set to the GitHub Pages site), and `TRUST_PROXY=true` makes the per-address limits use the player's real address behind Render's proxy.

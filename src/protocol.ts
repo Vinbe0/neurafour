@@ -9,6 +9,8 @@ export const ERROR_MESSAGES = {
   game_over: 'Game is already over.',
   invalid_column: 'Invalid column.',
   column_full: 'Column is full.',
+  already_in_room: 'You are already in a room.',
+  server_busy: 'The server is full. Try again later.',
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_MESSAGES;

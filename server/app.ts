@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
-import type { Server } from 'node:http';
+import type { IncomingMessage, Server } from 'node:http';
 import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { checkWin, createEmptyBoard, getAvailableRow, isBoardFull, COLS } from '../src/rules.ts';
@@ -39,6 +39,8 @@ interface Room {
   turn: PlayerType;
   status: 'playing' | 'finished';
   chat: ChatMessage[];
+  // Who asked for a rematch; only the other player can accept it
+  restartRequestedBy: PlayerType | null;
 }
 
 const MAX_NAME = 18;
@@ -69,10 +71,37 @@ export interface GameServer {
 export interface GameServerOptions {
   // How long a disconnected player's seat is kept for them to reconnect
   reconnectGraceMs?: number;
+  // Web pages allowed to connect (e.g. https://vinbe0.github.io); any origin if not set
+  allowedOrigins?: string[];
+  // Use the X-Forwarded-For header for the client address (only behind a proxy such as Render)
+  trustProxy?: boolean;
+  maxRooms?: number;
+  maxConnectionsPerIp?: number;
+  // Messages above this rate are ignored; at three times the rate the connection is closed
+  maxMessagesPerSecond?: number;
+  maxMessageBytes?: number;
+  // How often connections are pinged; one that misses a ping is dropped
+  heartbeatMs?: number;
 }
 
-export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOptions = {}): GameServer => {
+export const createGameServer = ({
+  reconnectGraceMs = 30_000,
+  allowedOrigins,
+  trustProxy = false,
+  maxRooms = 500,
+  maxConnectionsPerIp = 10,
+  maxMessagesPerSecond = 20,
+  maxMessageBytes = 4096,
+  heartbeatMs = 30_000,
+}: GameServerOptions = {}): GameServer => {
   const rooms = new Map<string, Room>();
+  const connectionsPerIp = new Map<string, number>();
+
+  const clientAddress = (req: IncomingMessage) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(',')[0]?.trim();
+    return (trustProxy && first) || req.socket.remoteAddress || 'unknown';
+  };
   const app = express();
 
   app.get('/health', (_req, res) => {
@@ -80,7 +109,31 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
   });
 
   const server = createServer(app);
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({
+    server,
+    maxPayload: maxMessageBytes,
+    // Refuse other websites and anyone holding too many connections open
+    verifyClient: ({ origin, req }, done) => {
+      if (allowedOrigins && !allowedOrigins.includes(origin)) return done(false, 403, 'Origin not allowed');
+      if ((connectionsPerIp.get(clientAddress(req)) ?? 0) >= maxConnectionsPerIp) return done(false, 429, 'Too many connections');
+      done(true);
+    },
+  });
+
+  // Heartbeat: a connection that has not answered the previous ping is dead (closed
+  // laptop, lost network) and is dropped, which starts the usual reconnect grace period
+  const alive = new WeakMap<WebSocket, boolean>();
+  const heartbeat = setInterval(() => {
+    for (const client of wss.clients) {
+      if (alive.get(client) === false) {
+        client.terminate();
+        continue;
+      }
+      alive.set(client, false);
+      client.ping();
+    }
+  }, heartbeatMs);
+  server.on('close', () => clearInterval(heartbeat));
 
   const broadcast = (room: Room, payload: object) => {
     for (const player of room.players) send(player.ws, payload);
@@ -103,11 +156,35 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
     return code;
   };
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     let room: Room | null = null;
     let side: PlayerType | null = null;
 
+    const address = clientAddress(req);
+    connectionsPerIp.set(address, (connectionsPerIp.get(address) ?? 0) + 1);
+    alive.set(ws, true);
+    ws.on('pong', () => alive.set(ws, true));
+    // Protocol errors (e.g. an oversized message) close the connection; without a
+    // listener Node would treat them as unhandled and crash the whole server
+    ws.on('error', (err) => console.warn(`Connection from ${address} closed: ${err.message}`));
+
+    // Simple flood protection: count messages per one-second window
+    let windowStart = Date.now();
+    let messagesInWindow = 0;
+
     ws.on('message', (raw) => {
+      const now = Date.now();
+      if (now - windowStart >= 1000) {
+        windowStart = now;
+        messagesInWindow = 0;
+      }
+      messagesInWindow++;
+      if (messagesInWindow > maxMessagesPerSecond * 3) {
+        ws.close(1008, 'Too many messages');
+        return;
+      }
+      if (messagesInWindow > maxMessagesPerSecond) return;
+
       let data: Record<string, unknown>;
       try {
         data = JSON.parse(raw.toString());
@@ -117,6 +194,14 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
 
       switch (data.type) {
         case 'create_room': {
+          if (room) {
+            sendError(ws, 'already_in_room');
+            return;
+          }
+          if (rooms.size >= maxRooms) {
+            sendError(ws, 'server_busy');
+            return;
+          }
           const code = generateRoomCode();
           const token = randomUUID();
           room = {
@@ -134,6 +219,7 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
             turn: 'red',
             status: 'playing',
             chat: [],
+            restartRequestedBy: null,
           };
           side = 'red';
           rooms.set(code, room);
@@ -142,6 +228,10 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
         }
 
         case 'join_room': {
+          if (room) {
+            sendError(ws, 'already_in_room');
+            return;
+          }
           const code = cleanText(data.roomCode, 5, '').toUpperCase();
           const target = rooms.get(code);
           if (!target) {
@@ -263,14 +353,17 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
         }
 
         case 'restart_request': {
-          if (!room) return;
+          if (!room || !side) return;
+          room.restartRequestedBy = side;
           const other = room.players.find((p) => p.ws !== ws);
           if (other) send(other.ws, { type: 'opponent_wants_restart' });
           break;
         }
 
         case 'restart_confirm': {
-          if (!room) return;
+          // Only the player who did not ask can accept, so nobody can wipe a game on their own
+          if (!room || !side || !room.restartRequestedBy || room.restartRequestedBy === side) return;
+          room.restartRequestedBy = null;
           room.board = createEmptyBoard();
           room.moves = [];
           room.turn = 'red';
@@ -284,6 +377,10 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
     // A dropped connection (often just a page reload) keeps the seat for a while;
     // the room closes only if the player does not come back in time
     ws.on('close', () => {
+      const remaining = (connectionsPerIp.get(address) ?? 1) - 1;
+      if (remaining > 0) connectionsPerIp.set(address, remaining);
+      else connectionsPerIp.delete(address);
+
       const current = room;
       if (!current || rooms.get(current.code) !== current) return;
       const player = current.players.find((p) => p.ws === ws);
