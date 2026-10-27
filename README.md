@@ -52,8 +52,8 @@ React 19 · TypeScript · Vite · Web Workers · Node.js · Express · `ws` · S
 
 | Command | What it covers |
 | --- | --- |
-| `npm test` | 61 unit tests (Vitest): board rules, the search engine against a reference minimax, AI strength by self-play, the game state module, the AI Coach, and the multiplayer server driven by real WebSocket clients |
-| `npm run test:e2e` | Playwright in Chromium: playing the AI with undo, a keyboard-only game, the coach review, language and theme, every dialog, and two browsers playing an online game, including one reloading mid-game |
+| `npm test` | 68 unit tests (Vitest): board rules, the search engine against a reference minimax, AI strength by self-play, the game state module, the AI Coach, and the multiplayer server (including its limits) driven by real WebSocket clients |
+| `npm run test:e2e` | Playwright in Chromium: playing the AI with undo, a keyboard-only game, the coach review, language and theme, every dialog, two browsers in different time zones playing an online game (including one reloading mid-game), and WCAG 2.1 AA accessibility checks with axe-core on every screen |
 | `npm run test:db` | The Supabase schema and scoring migration on a real Postgres database, including attempts to cheat |
 
 [CI](.github/workflows/ci.yml) runs all three on every pull request, and the deploy runs the unit tests again before publishing.
