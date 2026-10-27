@@ -88,6 +88,15 @@ const en = {
   'mp.rejoined': 'Reconnected to room {code}.',
   'mp.opponentDisconnected': 'Your opponent lost connection. Waiting {seconds} s for them to come back…',
   'mp.opponentReconnected': 'Your opponent is back.',
+  'mp.opponentLeft': 'Your opponent left the game.',
+  'error.room_not_found': 'Room not found.',
+  'error.room_full': 'This room is already full.',
+  'error.not_your_turn': 'It is not your turn.',
+  'error.game_over': 'The game is already over.',
+  'error.invalid_column': 'That column does not exist.',
+  'error.column_full': 'That column is full.',
+  'error.already_in_room': 'You are already in a room. Leave it first.',
+  'error.server_busy': 'The server is full right now. Try again in a few minutes.',
   'mp.serverError': 'Could not reach the multiplayer server. Try again in a moment.',
 
   // Lobby
@@ -231,6 +240,7 @@ const en = {
   'lb.offline': 'Offline mode: only your local profile is shown.',
   'lb.search': 'Search players…',
   'lb.global': '🌍 Global',
+  'lb.city': 'City',
   'lb.yourScore': 'Your score',
   'lb.none': 'No players found.',
 
@@ -315,6 +325,15 @@ const ru: Record<TranslationKey, string> = {
   'mp.rejoined': 'Вы снова в комнате {code}.',
   'mp.opponentDisconnected': 'Соперник потерял связь. Ждём его {seconds} с…',
   'mp.opponentReconnected': 'Соперник вернулся.',
+  'mp.opponentLeft': 'Соперник покинул игру.',
+  'error.room_not_found': 'Комната не найдена.',
+  'error.room_full': 'Комната уже заполнена.',
+  'error.not_your_turn': 'Сейчас не ваш ход.',
+  'error.game_over': 'Партия уже закончилась.',
+  'error.invalid_column': 'Такой колонки нет.',
+  'error.column_full': 'Эта колонка заполнена.',
+  'error.already_in_room': 'Вы уже в комнате. Сначала выйдите из неё.',
+  'error.server_busy': 'Сервер сейчас заполнен. Попробуйте через несколько минут.',
   'mp.serverError': 'Не удалось подключиться к серверу мультиплеера. Попробуйте чуть позже.',
 
   'lobby.title': 'Сетевая дуэль',
@@ -451,6 +470,7 @@ const ru: Record<TranslationKey, string> = {
   'lb.offline': 'Офлайн-режим: показан только ваш локальный профиль.',
   'lb.search': 'Поиск игроков…',
   'lb.global': '🌍 Весь мир',
+  'lb.city': 'Город',
   'lb.yourScore': 'Ваши очки',
   'lb.none': 'Игроки не найдены.',
 

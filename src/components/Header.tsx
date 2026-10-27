@@ -61,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="app-header glass-panel">
       {/* Brand Logo */}
-      <button className="header-brand" onClick={() => handleTabClick('game')} aria-label={t('header.openGame')}>
+      <button className="header-brand" onClick={() => handleTabClick('game')} title={t('header.openGame')}>
         <Brain className="brand-icon" size={32} />
         <div>
           <h1 className="display-font">
@@ -152,7 +152,8 @@ export const Header: React.FC<HeaderProps> = ({
             className="glass-button lang-button"
             onClick={toggleLang}
             title={t('header.language')}
-            aria-label={t('header.language')}
+            // The accessible name includes the visible "RU"/"EN" so voice control can find it
+            aria-label={`${t('header.language')}: ${lang === 'en' ? 'RU' : 'EN'}`}
           >
             <Languages size={14} />
             <span>{lang === 'en' ? 'RU' : 'EN'}</span>

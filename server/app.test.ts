@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import { WebSocket } from 'ws';
 import { createGameServer } from './app.ts';
-import type { GameServer } from './app.ts';
+import type { GameServer, GameServerOptions } from './app.ts';
 
 type Message = Record<string, unknown> & { type: string };
 
@@ -21,19 +21,28 @@ let game: GameServer;
 let port: number;
 const clients: Client[] = [];
 
-beforeEach(async () => {
-  game = createGameServer({ reconnectGraceMs: GRACE_MS });
+const startServer = async (options: GameServerOptions = {}) => {
+  game = createGameServer({ reconnectGraceMs: GRACE_MS, ...options });
   await new Promise<void>((resolve) => game.server.listen(0, resolve));
   port = (game.server.address() as AddressInfo).port;
-});
+};
+
+// Replaces the default server with one configured for a hardening test
+const restartServer = async (options: GameServerOptions) => {
+  await Promise.all(clients.splice(0).map((c) => c.close()));
+  await new Promise((resolve) => game.server.close(resolve));
+  await startServer(options);
+};
+
+beforeEach(() => startServer());
 
 afterEach(async () => {
   await Promise.all(clients.splice(0).map((c) => c.close()));
   await new Promise((resolve) => game.server.close(resolve));
 });
 
-const connect = async (): Promise<Client> => {
-  const ws = new WebSocket(`ws://localhost:${port}`);
+const connect = async (options: { origin?: string; autoPong?: boolean } = {}): Promise<Client> => {
+  const ws = new WebSocket(`ws://localhost:${port}`, options);
   const inbox: Message[] = [];
   const waiting: { type: string; resolve: (m: Message) => void }[] = [];
 
@@ -109,12 +118,13 @@ describe('rooms', () => {
   it('rejects unknown and full rooms', async () => {
     const stranger = await connect();
     stranger.send({ type: 'join_room', roomCode: 'ZZZZZ', username: 'X' });
-    expect((await stranger.next('error')).message).toContain('Room not found');
+    // A code for the app to translate, plus English text for older clients
+    expect(await stranger.next('error')).toMatchObject({ code: 'room_not_found', message: 'Room not found.' });
 
     const { roomCode } = await startMatch();
     const third = await connect();
     third.send({ type: 'join_room', roomCode, username: 'Third' });
-    expect((await third.next('error')).message).toContain('Room is full');
+    expect((await third.next('error')).code).toBe('room_full');
   });
 
   it('closes the room at once when a player leaves on purpose', async () => {
@@ -144,11 +154,11 @@ describe('moves', () => {
   it('rejects moves out of turn, invalid columns and full columns', async () => {
     const { host, guest } = await startMatch();
     guest.send({ type: 'make_move', column: 0 });
-    expect((await guest.next('error')).message).toContain('Not your turn');
+    expect((await guest.next('error')).code).toBe('not_your_turn');
 
     for (const column of [-1, 7, 2.5, '3']) {
       host.send({ type: 'make_move', column });
-      expect((await host.next('error')).message).toContain('Invalid column');
+      expect((await host.next('error')).code).toBe('invalid_column');
     }
 
     for (let i = 0; i < 3; i++) {
@@ -156,7 +166,7 @@ describe('moves', () => {
       await move(guest, [host], 0);
     }
     host.send({ type: 'make_move', column: 0 });
-    expect((await host.next('error')).message).toContain('Column is full');
+    expect((await host.next('error')).code).toBe('column_full');
   });
 
   it('detects a win and refuses further moves', async () => {
@@ -169,7 +179,7 @@ describe('moves', () => {
     expect(winning).toMatchObject({ winner: 'red', winningCells: [[5, 0], [5, 1], [5, 2], [5, 3]] });
 
     guest.send({ type: 'make_move', column: 4 });
-    expect((await guest.next('error')).message).toContain('already over');
+    expect((await guest.next('error')).code).toBe('game_over');
   });
 
   it('starts a fresh game after a rematch is accepted', async () => {
@@ -189,6 +199,8 @@ describe('chat', () => {
     guest.send({ type: 'chat', username: 'Host', text: '  gl hf  ' });
     const [toHost] = await Promise.all([host.next('chat_received'), guest.next('chat_received')]);
     expect(toHost.message).toMatchObject({ username: 'Guest', text: 'gl hf' });
+    // A timestamp, not preformatted text, so each player sees their own time zone
+    expect((toHost.message as { sentAt: number }).sentAt).toBeCloseTo(Date.now(), -4);
   });
 
   it('limits message length and ignores empty messages', async () => {
@@ -235,6 +247,106 @@ describe('reconnecting', () => {
     const { roomCode } = await startMatch();
     const intruder = await connect();
     intruder.send({ type: 'rejoin_room', roomCode, token: 'not-the-token' });
-    expect((await intruder.next('error')).message).toContain('Room not found');
+    expect((await intruder.next('error')).code).toBe('room_not_found');
+  });
+});
+
+// Resolves with the HTTP status when the server refuses the WebSocket connection
+const rejectedStatus = (options: { origin?: string } = {}) => new Promise<number>((resolve, reject) => {
+  const ws = new WebSocket(`ws://localhost:${port}`, options);
+  ws.on('unexpected-response', (_req, res) => resolve(res.statusCode ?? 0));
+  ws.on('open', () => {
+    ws.close();
+    reject(new Error('connection was accepted'));
+  });
+});
+
+const closeCode = (client: Client) => new Promise<number>((resolve) => client.ws.once('close', (code) => resolve(code)));
+
+describe('hardening', () => {
+  it('only accepts connections from allowed websites', async () => {
+    await restartServer({ allowedOrigins: ['https://vinbe0.github.io'] });
+    expect(await rejectedStatus({ origin: 'https://evil.example' })).toBe(403);
+    const allowed = await connect({ origin: 'https://vinbe0.github.io' });
+    allowed.send({ type: 'create_room', username: 'A' });
+    await allowed.next('room_created');
+  });
+
+  it('limits open connections per address', async () => {
+    await restartServer({ maxConnectionsPerIp: 2 });
+    await connect();
+    const second = await connect();
+    expect(await rejectedStatus()).toBe(429);
+    await second.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await connect(); // a slot is free again
+  });
+
+  it('closes a connection that sends an oversized message, and keeps running', async () => {
+    await restartServer({ maxMessageBytes: 1024 });
+    const client = await connect();
+    const closed = closeCode(client);
+    client.send({ type: 'chat', text: 'x'.repeat(5000) });
+    expect(await closed).toBe(1009);
+
+    const next = await connect();
+    next.send({ type: 'create_room', username: 'Still up' });
+    await next.next('room_created');
+  });
+
+  it('ignores messages above the rate limit and drops floods', async () => {
+    await restartServer({ maxMessagesPerSecond: 5 });
+    const { host, guest } = await startMatch();
+    // Start from a fresh one-second window (joining already sent a few messages)
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    for (let i = 0; i < 8; i++) host.send({ type: 'chat', text: `m${i}` });
+    for (let i = 0; i < 5; i++) await guest.next('chat_received');
+    await expect(guest.next('chat_received')).rejects.toThrow('timed out');
+
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const closed = closeCode(host);
+    for (let i = 0; i < 20; i++) host.send({ type: 'chat', text: 'flood' });
+    expect(await closed).toBe(1008);
+  });
+
+  it('allows one room per connection and a maximum number of rooms', async () => {
+    await restartServer({ maxRooms: 1 });
+    const host = await connect();
+    host.send({ type: 'create_room', username: 'A' });
+    await host.next('room_created');
+    host.send({ type: 'create_room', username: 'A' });
+    expect((await host.next('error')).code).toBe('already_in_room');
+
+    const other = await connect();
+    other.send({ type: 'create_room', username: 'B' });
+    expect((await other.next('error')).code).toBe('server_busy');
+  });
+
+  it('drops connections that stop answering pings', async () => {
+    await restartServer({ heartbeatMs: 50 });
+    const host = await connect();
+    host.send({ type: 'create_room', username: 'Host' });
+    const { roomCode } = await host.next('room_created');
+    const silent = await connect({ autoPong: false });
+    silent.send({ type: 'join_room', roomCode, username: 'Silent' });
+    await silent.next('room_joined');
+
+    expect(await host.next('opponent_disconnected')).toMatchObject({ type: 'opponent_disconnected' });
+    expect(silent.ws.readyState).toBe(WebSocket.CLOSED);
+  });
+
+  it('only lets the other player accept a rematch', async () => {
+    const { host, guest } = await startMatch();
+    await move(host, [guest], 3);
+
+    // Confirming without a request, or accepting your own request, does nothing
+    guest.send({ type: 'restart_confirm' });
+    host.send({ type: 'restart_request' });
+    await guest.next('opponent_wants_restart');
+    host.send({ type: 'restart_confirm' });
+    expect(await move(guest, [host], 3)).toMatchObject({ row: 4 });
+
+    guest.send({ type: 'restart_confirm' });
+    await Promise.all([host.next('game_restarted'), guest.next('game_restarted')]);
   });
 });
