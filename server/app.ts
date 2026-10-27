@@ -5,6 +5,8 @@ import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { checkWin, createEmptyBoard, getAvailableRow, isBoardFull, COLS } from '../src/rules.ts';
 import type { BoardType, PlayerType } from '../src/types.ts';
+import { ERROR_MESSAGES } from '../src/protocol.ts';
+import type { ErrorCode } from '../src/protocol.ts';
 
 // NeuraFour multiplayer server: private rooms of two players. The server owns the
 // board and turn order and validates every move with the same rules as the client.
@@ -45,16 +47,6 @@ const MAX_CHAT = 300;
 const CHAT_HISTORY = 50;
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous 0/O, 1/I
 
-// Messages are sent as "Russian / English"; the client shows the half matching its language
-const ERRORS = {
-  roomNotFound: 'Комната не найдена / Room not found.',
-  roomFull: 'Комната заполнена / Room is full.',
-  notYourTurn: 'Не ваш ход / Not your turn.',
-  gameOver: 'Партия уже завершена / Game is already over.',
-  invalidColumn: 'Некорректная колонка / Invalid column.',
-  columnFull: 'Колонка заполнена / Column is full.',
-  opponentLeft: 'Оппонент покинул бой. / Opponent disconnected.',
-};
 
 // Untrusted text from clients: trimmed, length-limited, with a fallback when empty
 const cleanText = (value: unknown, max: number, fallback: string) => {
@@ -65,6 +57,9 @@ const cleanText = (value: unknown, max: number, fallback: string) => {
 const send = (ws: WebSocket, payload: object) => {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
 };
+
+// The code is translated by the app; the English text is for logs and older clients
+const sendError = (ws: WebSocket, code: ErrorCode) => send(ws, { type: 'error', code, message: ERROR_MESSAGES[code] });
 
 export interface GameServer {
   server: Server;
@@ -95,7 +90,7 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
 
   const closeRoom = (room: Room, leaving: Player) => {
     const other = opponentOf(room, leaving);
-    if (other) send(other.ws, { type: 'opponent_left', message: ERRORS.opponentLeft });
+    if (other) send(other.ws, { type: 'opponent_left' });
     for (const player of room.players) clearTimeout(player.leaveTimer);
     rooms.delete(room.code);
   };
@@ -150,11 +145,11 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
           const code = cleanText(data.roomCode, 5, '').toUpperCase();
           const target = rooms.get(code);
           if (!target) {
-            send(ws, { type: 'error', message: ERRORS.roomNotFound });
+            sendError(ws, 'room_not_found');
             return;
           }
           if (target.players.length >= 2) {
-            send(ws, { type: 'error', message: ERRORS.roomFull });
+            sendError(ws, 'room_full');
             return;
           }
 
@@ -184,7 +179,7 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
           const target = rooms.get(code);
           const player = target?.players.find((p) => p.token === data.token);
           if (!target || !player) {
-            send(ws, { type: 'error', message: ERRORS.roomNotFound });
+            sendError(ws, 'room_not_found');
             return;
           }
 
@@ -221,20 +216,20 @@ export const createGameServer = ({ reconnectGraceMs = 30_000 }: GameServerOption
           const column = data.column;
 
           if (room.status !== 'playing') {
-            send(ws, { type: 'error', message: ERRORS.gameOver });
+            sendError(ws, 'game_over');
             return;
           }
           if (room.turn !== side) {
-            send(ws, { type: 'error', message: ERRORS.notYourTurn });
+            sendError(ws, 'not_your_turn');
             return;
           }
           if (typeof column !== 'number' || !Number.isInteger(column) || column < 0 || column >= COLS) {
-            send(ws, { type: 'error', message: ERRORS.invalidColumn });
+            sendError(ws, 'invalid_column');
             return;
           }
           const row = getAvailableRow(room.board, column);
           if (row === -1) {
-            send(ws, { type: 'error', message: ERRORS.columnFull });
+            sendError(ws, 'column_full');
             return;
           }
 

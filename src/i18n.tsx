@@ -88,6 +88,13 @@ const en = {
   'mp.rejoined': 'Reconnected to room {code}.',
   'mp.opponentDisconnected': 'Your opponent lost connection. Waiting {seconds} s for them to come back…',
   'mp.opponentReconnected': 'Your opponent is back.',
+  'mp.opponentLeft': 'Your opponent left the game.',
+  'error.room_not_found': 'Room not found.',
+  'error.room_full': 'This room is already full.',
+  'error.not_your_turn': 'It is not your turn.',
+  'error.game_over': 'The game is already over.',
+  'error.invalid_column': 'That column does not exist.',
+  'error.column_full': 'That column is full.',
   'mp.serverError': 'Could not reach the multiplayer server. Try again in a moment.',
 
   // Lobby
@@ -316,6 +323,13 @@ const ru: Record<TranslationKey, string> = {
   'mp.rejoined': 'Вы снова в комнате {code}.',
   'mp.opponentDisconnected': 'Соперник потерял связь. Ждём его {seconds} с…',
   'mp.opponentReconnected': 'Соперник вернулся.',
+  'mp.opponentLeft': 'Соперник покинул игру.',
+  'error.room_not_found': 'Комната не найдена.',
+  'error.room_full': 'Комната уже заполнена.',
+  'error.not_your_turn': 'Сейчас не ваш ход.',
+  'error.game_over': 'Партия уже закончилась.',
+  'error.invalid_column': 'Такой колонки нет.',
+  'error.column_full': 'Эта колонка заполнена.',
   'mp.serverError': 'Не удалось подключиться к серверу мультиплеера. Попробуйте чуть позже.',
 
   'lobby.title': 'Сетевая дуэль',

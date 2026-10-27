@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChatMessage, PlayerType, RoomMove } from '../types';
 import { playAlert, playClick, playUnlock } from '../sound';
 import { useI18n } from '../i18n';
-import type { Lang } from '../i18n';
+import { isErrorCode } from '../protocol';
 import { useToast } from '../toast';
 
 // Online play: the WebSocket connection to the multiplayer server, the room this
@@ -34,11 +34,6 @@ const saveRoom = (room: SavedRoom | null) => {
   }
 };
 
-// Server messages are sent as "Russian / English"; show the half that matches the UI language
-const pickServerText = (message: string, lang: Lang) => {
-  const [ru, en] = message.split(' / ');
-  return (lang === 'ru' ? ru : en ?? ru).trim();
-};
 
 export interface Opponent {
   username: string;
@@ -46,7 +41,11 @@ export interface Opponent {
 }
 
 export const useMultiplayer = (player: { username: string; avatar: string }) => {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+
+  // Server errors arrive as a code (e.g. not_your_turn); older servers sent only text
+  const serverError = (data: { code?: unknown; message?: string }) =>
+    isErrorCode(data.code) ? t(`error.${data.code}`) : data.message ?? t('mp.serverError');
   const notify = useToast();
 
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -145,7 +144,7 @@ export const useMultiplayer = (player: { username: string; avatar: string }) => 
 
           case 'opponent_left': {
             playAlert();
-            notify(pickServerText(data.message, lang), 'error');
+            notify(t('mp.opponentLeft'), 'error');
             // Graceful network exit reset
             saveRoom(null);
             resetSocketMatch();
@@ -176,9 +175,9 @@ export const useMultiplayer = (player: { username: string; avatar: string }) => 
               break;
             }
             playAlert();
-            notify(pickServerText(data.message, lang), 'error');
+            notify(serverError(data), 'error');
             if (!inRoom) {
-              setConnectionError(pickServerText(data.message, lang));
+              setConnectionError(serverError(data));
               ws.close();
             }
             break;

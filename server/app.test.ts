@@ -109,12 +109,13 @@ describe('rooms', () => {
   it('rejects unknown and full rooms', async () => {
     const stranger = await connect();
     stranger.send({ type: 'join_room', roomCode: 'ZZZZZ', username: 'X' });
-    expect((await stranger.next('error')).message).toContain('Room not found');
+    // A code for the app to translate, plus English text for older clients
+    expect(await stranger.next('error')).toMatchObject({ code: 'room_not_found', message: 'Room not found.' });
 
     const { roomCode } = await startMatch();
     const third = await connect();
     third.send({ type: 'join_room', roomCode, username: 'Third' });
-    expect((await third.next('error')).message).toContain('Room is full');
+    expect((await third.next('error')).code).toBe('room_full');
   });
 
   it('closes the room at once when a player leaves on purpose', async () => {
@@ -144,11 +145,11 @@ describe('moves', () => {
   it('rejects moves out of turn, invalid columns and full columns', async () => {
     const { host, guest } = await startMatch();
     guest.send({ type: 'make_move', column: 0 });
-    expect((await guest.next('error')).message).toContain('Not your turn');
+    expect((await guest.next('error')).code).toBe('not_your_turn');
 
     for (const column of [-1, 7, 2.5, '3']) {
       host.send({ type: 'make_move', column });
-      expect((await host.next('error')).message).toContain('Invalid column');
+      expect((await host.next('error')).code).toBe('invalid_column');
     }
 
     for (let i = 0; i < 3; i++) {
@@ -156,7 +157,7 @@ describe('moves', () => {
       await move(guest, [host], 0);
     }
     host.send({ type: 'make_move', column: 0 });
-    expect((await host.next('error')).message).toContain('Column is full');
+    expect((await host.next('error')).code).toBe('column_full');
   });
 
   it('detects a win and refuses further moves', async () => {
@@ -169,7 +170,7 @@ describe('moves', () => {
     expect(winning).toMatchObject({ winner: 'red', winningCells: [[5, 0], [5, 1], [5, 2], [5, 3]] });
 
     guest.send({ type: 'make_move', column: 4 });
-    expect((await guest.next('error')).message).toContain('already over');
+    expect((await guest.next('error')).code).toBe('game_over');
   });
 
   it('starts a fresh game after a rematch is accepted', async () => {
@@ -235,6 +236,6 @@ describe('reconnecting', () => {
     const { roomCode } = await startMatch();
     const intruder = await connect();
     intruder.send({ type: 'rejoin_room', roomCode, token: 'not-the-token' });
-    expect((await intruder.next('error')).message).toContain('Room not found');
+    expect((await intruder.next('error')).code).toBe('room_not_found');
   });
 });
