@@ -145,6 +145,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
           <div style={{ minWidth: '180px' }}>
             <select
+              aria-label={t('lb.city')}
               className="cyber-input"
               value={selectedCity}
               onChange={(e) => { playClick(); setSelectedCity(e.target.value); }}

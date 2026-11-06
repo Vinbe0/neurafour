@@ -42,7 +42,7 @@ Browser ──WebSocket──▶ Node server (TypeScript, Express + ws)
                         • holds a disconnected player's seat for 30 s so they can rejoin
 ```
 
-The server ([`server/app.ts`](server/app.ts)) is authoritative. It rejects moves made out of turn, moves into full or invalid columns, and moves after the game ends, so a modified client can't cheat. It shares [`src/rules.ts`](src/rules.ts) with the browser instead of keeping its own copy, and limits names and chat messages. Each player gets a secret token. After a page reload, the browser uses it to take the seat back and receives the moves and chat so far. `GET /health` reports how many rooms are active.
+The server ([`server/app.ts`](server/app.ts)) is authoritative and defensive: it accepts connections only from allowed websites, limits connections per address, message size and message rate, caps the number of rooms, pings every connection to drop dead ones, and only lets the *other* player accept a rematch. It rejects moves made out of turn, moves into full or invalid columns, and moves after the game ends, so a modified client can't cheat. It shares [`src/rules.ts`](src/rules.ts) with the browser instead of keeping its own copy, and limits names and chat messages. Each player gets a secret token. After a page reload, the browser uses it to take the seat back and receives the moves and chat so far. `GET /health` reports how many rooms are active.
 
 ## Tech stack
 
@@ -52,8 +52,8 @@ React 19 · TypeScript · Vite · Web Workers · Node.js · Express · `ws` · S
 
 | Command | What it covers |
 | --- | --- |
-| `npm test` | 61 unit tests (Vitest): board rules, the search engine against a reference minimax, AI strength by self-play, the game state module, the AI Coach, and the multiplayer server driven by real WebSocket clients |
-| `npm run test:e2e` | Playwright in Chromium: playing the AI with undo, a keyboard-only game, the coach review, language and theme, every dialog, and two browsers playing an online game, including one reloading mid-game |
+| `npm test` | 68 unit tests (Vitest): board rules, the search engine against a reference minimax, AI strength by self-play, the game state module, the AI Coach, and the multiplayer server (including its limits) driven by real WebSocket clients |
+| `npm run test:e2e` | Playwright in Chromium: playing the AI with undo, a keyboard-only game, the coach review, language and theme, every dialog, two browsers in different time zones playing an online game (including one reloading mid-game), and WCAG 2.1 AA accessibility checks with axe-core on every screen |
 | `npm run test:db` | The Supabase schema and scoring migration on a real Postgres database, including attempts to cheat |
 
 [CI](.github/workflows/ci.yml) runs all three on every pull request, and the deploy runs the unit tests again before publishing.
@@ -94,4 +94,4 @@ Results are still reported by the browser, since the server does not replay game
 ## Deployment
 
 - **Frontend:** GitHub Pages, deployed by [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) on every push to `main`. The workflow reads the `VITE_*` values from the repo's Actions variables.
-- **Multiplayer server:** Render, defined in [`render.yaml`](render.yaml) (free web service, health check on `/health`).
+- **Multiplayer server:** Render, defined in [`render.yaml`](render.yaml) (free web service, health check on `/health`). `ALLOWED_ORIGINS` limits which websites may connect (set to the GitHub Pages site), and `TRUST_PROXY=true` makes the per-address limits use the player's real address behind Render's proxy.

@@ -99,7 +99,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <span>{t('profile.level', { n: playerLevel })}</span>
             <strong>{nextLevelAt - profile.points > 0 ? t('profile.toNext', { cp: nextLevelAt - profile.points }) : t('profile.levelUp')}</strong>
           </div>
-          <div className="account-progress" aria-label={`${levelProgress}%`}>
+          <div
+            className="account-progress"
+            role="progressbar"
+            aria-label={t('profile.level', { n: playerLevel })}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={levelProgress}
+          >
             <span style={{ width: `${levelProgress}%` }} />
           </div>
         </section>
@@ -108,8 +115,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <div className="account-edit-card">
             <h3><User size={17} /> {t('profile.settings')}</h3>
 
-            <label className="cyber-label">{t('profile.nickname')}</label>
+            <label className="cyber-label" htmlFor="profile-nickname">{t('profile.nickname')}</label>
             <input
+              id="profile-nickname"
               type="text"
               className="cyber-input"
               value={username}
@@ -118,8 +126,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               placeholder={t('profile.nicknamePlaceholder')}
             />
 
-            <label className="cyber-label">{t('profile.city')}</label>
+            <label className="cyber-label" htmlFor="profile-city">{t('profile.city')}</label>
             <select
+              id="profile-city"
               className="cyber-input"
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -131,14 +140,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               ))}
             </select>
 
-            <label className="cyber-label">{t('profile.avatar')}</label>
-            <div className="avatar-grid">
+            <span className="cyber-label" id="profile-avatar-label">{t('profile.avatar')}</span>
+            <div className="avatar-grid" role="group" aria-labelledby="profile-avatar-label">
               {AVATARS.map((av) => (
                 <button
                   key={av}
                   className={avatar === av ? 'selected' : ''}
                   onClick={() => { playClick(); setAvatar(av); }}
                   aria-label={`${t('profile.avatar')} ${av}`}
+                  aria-pressed={avatar === av}
                 >
                   {av}
                 </button>

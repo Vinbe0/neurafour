@@ -6,3 +6,10 @@ services:
     buildCommand: npm ci --omit=dev
     startCommand: npm run server
     healthCheckPath: /health
+    envVars:
+      # Only the published site may connect to the multiplayer server
+      - key: ALLOWED_ORIGINS
+        value: https://vinbe0.github.io
+      # Render's proxy passes the player's address in X-Forwarded-For
+      - key: TRUST_PROXY
+        value: "true"

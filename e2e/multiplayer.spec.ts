@@ -3,9 +3,10 @@ import type { Browser } from '@playwright/test';
 import { dropInColumn, moveList, preparePlayer } from './fixtures';
 
 // Two separate browser contexts, so each player has their own storage
+// (and their own time zone: Alice in Almaty, Bob in London)
 const openTwoPlayers = async (browser: Browser) => {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
+  const hostContext = await browser.newContext({ timezoneId: 'Asia/Almaty' });
+  const guestContext = await browser.newContext({ timezoneId: 'Europe/London' });
   await preparePlayer(hostContext, 'Alice');
   await preparePlayer(guestContext, 'Bob');
   return { host: await hostContext.newPage(), guest: await guestContext.newPage(), contexts: [hostContext, guestContext] };
@@ -42,6 +43,12 @@ test('two players create, join and finish an online game', async ({ browser }) =
   await chatBox.fill('gl hf 1234');
   await chatBox.press('Enter');
   await expect(guest.locator('.chat-panel .chat-bubble')).toHaveText('gl hf 1234');
+  // The same message is stamped in each player's local time
+  const stamp = async (page: typeof host) => (await page.locator('.chat-panel .chat-meta').textContent())?.split('•')[1]?.trim();
+  const [hostTime, guestTime] = await Promise.all([stamp(host), stamp(guest)]);
+  expect(hostTime).toMatch(/\d{1,2}:\d{2}/);
+  expect(guestTime).toMatch(/\d{1,2}:\d{2}/);
+  expect(hostTime).not.toBe(guestTime);
   await expect(moveList(host)).toHaveCount(0);
 
   // Alice wins on the bottom row while Bob stacks in column 7
