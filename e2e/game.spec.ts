@@ -6,7 +6,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test('the AI answers a move and undo takes both back', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/play');
   await expect(page.locator('.status-title')).toHaveText('Your turn');
 
   await dropInColumn(page, 4);
@@ -20,7 +20,7 @@ test('the AI answers a move and undo takes both back', async ({ page }) => {
 });
 
 test('keyboard plays a local game to a win and offers the AI Coach', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/play');
   await page.getByRole('tab', { name: 'Local' }).click();
   await page.locator('body').click({ position: { x: 5, y: 5 } });
 
@@ -42,7 +42,7 @@ test('keyboard plays a local game to a win and offers the AI Coach', async ({ pa
 });
 
 test('the language switch translates the interface', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/play');
   await page.getByRole('button', { name: 'Switch language' }).click();
   await expect(page.locator('.status-title')).toHaveText('Ваш ход');
   await expect(page.getByRole('tab', { name: 'Против ИИ' })).toBeVisible();
@@ -50,7 +50,7 @@ test('the language switch translates the interface', async ({ page }) => {
 
 test('the theme follows the system setting until the player picks one', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
-  await page.goto('/');
+  await page.goto('/#/play');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('button', { name: 'Light theme' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
@@ -60,7 +60,7 @@ test('the theme follows the system setting until the player picks one', async ({
 });
 
 test('every dialog loads when opened', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/play');
   const dialogs: [string, string][] = [
     ['Leaderboard', 'Leaderboard'],
     ['Shop', 'Skin shop'],
@@ -78,7 +78,7 @@ test('every dialog loads when opened', async ({ page }) => {
 });
 
 test('the evaluation bar follows the game and can be switched off', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/play');
   const bar = page.getByRole('img', { name: /^Evaluation:/ });
   await expect(bar).toBeVisible();
 

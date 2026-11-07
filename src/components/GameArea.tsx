@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain, Undo2, Keyboard } from 'lucide-react';
-import type { RoomMove, PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
+import type { StartPreset, RoomMove, PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
 import { isColumnAvailable } from '../rules';
 import { isGameOver as isGameOverState, newGame, playMove, undo, undoTarget } from '../game';
 import type { GameState } from '../game';
@@ -47,6 +47,8 @@ interface GameAreaProps {
   connectionError: string | null;
   // Set after a page reload: the online game so far, to rebuild the board from
   restoredMoves: RoomMove[] | null;
+  // From a home page quick-start tile: switch mode (and difficulty) and start a new game
+  startRequest: (StartPreset & { nonce: number }) | null;
 }
 
 const STORAGE_EVAL_KEY = 'neurafour_eval_bar';
@@ -84,6 +86,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
   opponentWantsRestart,
   connectionError,
   restoredMoves,
+  startRequest,
 }) => {
   const { t } = useI18n();
   const notify = useToast();
@@ -161,6 +164,14 @@ export const GameArea: React.FC<GameAreaProps> = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPlayer, gameMode, winner, isDraw, gameId]);
+
+  useEffect(() => {
+    if (!startRequest) return;
+    setGameMode(startRequest.mode);
+    if (startRequest.difficulty) setDifficulty(startRequest.difficulty);
+    resetLocalGame({ mode: startRequest.mode });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startRequest]);
 
   // Rejoined an online game after a reload: switch to online mode and replay its moves
   useEffect(() => {

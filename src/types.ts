@@ -6,6 +6,12 @@ export type BoardType = CellType[][]; // 6 rows, 7 columns: BoardType[row][col]
 
 export type GameMode = 'local' | 'ai' | 'multiplayer';
 
+// What a quick-start tile on the home page asks the game screen to set up
+export interface StartPreset {
+  mode: GameMode;
+  difficulty?: AIDifficulty;
+}
+
 // One move of an online game, as the server records it
 export interface RoomMove {
   column: number;

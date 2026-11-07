@@ -70,10 +70,15 @@ export const Header: React.FC<HeaderProps> = ({
     setActiveTab('game');
   };
 
+  const goHome = () => {
+    playClick();
+    setActiveTab('home');
+  };
+
   return (
     <header className="app-header">
       <div className="header-inner">
-        <button className="header-brand" onClick={goToGame} title={t('header.openGame')}>
+        <button className="header-brand" onClick={goHome} title={t('nav.home')}>
           <LogoMark />
           <span>NeuraFour</span>
         </button>

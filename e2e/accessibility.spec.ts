@@ -26,21 +26,27 @@ test.beforeEach(async ({ context }) => {
 for (const colorScheme of ['dark', 'light'] as const) {
   test(`game screen has no violations (${colorScheme} theme)`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });
-    await page.goto('/');
+    await page.goto('/#/play');
     await expect(page.locator('.status-title')).toHaveText('Your turn');
     await expectNoViolations(page, `game, ${colorScheme}`);
   });
 }
 
-test('online lobby has no violations', async ({ page }) => {
+test('home page has no violations', async ({ page }) => {
   await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expectNoViolations(page, 'home');
+});
+
+test('online lobby has no violations', async ({ page }) => {
+  await page.goto('/#/play');
   await page.getByRole('tab', { name: 'Online 1v1' }).click();
   await expect(page.getByRole('button', { name: 'Create room' })).toBeVisible();
   await expectNoViolations(page, 'lobby');
 });
 
 test('dialogs have no violations', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/play');
   for (const [button, heading] of [['Leaderboard', 'Leaderboard'], ['Shop', 'Skin shop'], ['Upgrade', 'NeuraFour PRO'], ['Sign in', 'Sign in']]) {
     await page.getByRole('button', { name: button, exact: true }).click();
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
@@ -53,7 +59,7 @@ test('dialogs have no violations', async ({ page }) => {
 });
 
 test('finished game and AI Coach review have no violations', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/play');
   await page.getByRole('tab', { name: 'Local' }).click();
   await page.locator('body').click({ position: { x: 5, y: 5 } });
   for (const key of ['1', '2', '1', '2', '1', '2', '1']) await page.keyboard.press(key);

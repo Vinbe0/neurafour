@@ -17,7 +17,7 @@ test('two players create, join and finish an online game', async ({ browser }) =
   const { host, guest, contexts } = await openTwoPlayers(browser);
 
   // Host creates a room and sees its code while waiting
-  await host.goto('/');
+  await host.goto('/#/play');
   await host.getByRole('tab', { name: 'Online 1v1' }).click();
   await host.getByRole('button', { name: 'Create room' }).click();
   await expect(host.getByText('Waiting for an opponent…')).toBeVisible();
@@ -71,7 +71,7 @@ test('two players create, join and finish an online game', async ({ browser }) =
 test('a player who reloads the page rejoins the same game', async ({ browser }) => {
   const { host, guest, contexts } = await openTwoPlayers(browser);
 
-  await host.goto('/');
+  await host.goto('/#/play');
   await host.getByRole('tab', { name: 'Online 1v1' }).click();
   await host.getByRole('button', { name: 'Create room' }).click();
   const roomCode = (await host.locator('.lobby-room h2').textContent())?.trim() ?? '';

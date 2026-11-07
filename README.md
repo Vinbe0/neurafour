@@ -10,6 +10,7 @@
 
 ## Features
 
+- **Home page.** A live game of the engine playing itself, quick-start tiles that open a game against any level in one click, and an overview of the features. Pages have their own URLs (`#/` and `#/play`).
 - **AI opponent, four levels.** Easy looks 2 moves ahead (with some random play), Medium 4, Hard 6, and Expert searches as deep as it can in 750 ms, usually 14+ moves. The search runs in a Web Worker, so the page never freezes while the AI thinks.
 - **Online multiplayer.** Create a room, share the invite link, and play a friend in real time over WebSockets, with chat and rematches. Reloading the page drops you back into the same game.
 - **Evaluation bar.** After every move the engine scores the position in the background and a bar beside the board shows who is ahead, with "M5" when it finds a forced win in five moves. It is hidden in online games and can be switched off.
