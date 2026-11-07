@@ -4,6 +4,7 @@ import type { UserProfile, ChatMessage } from '../types';
 import { playClick } from '../sound';
 import { useI18n } from '../i18n';
 import { ChatPanel } from './ChatPanel';
+import { Avatar } from './Avatar';
 
 interface LobbyProps {
   profile: UserProfile;
@@ -85,7 +86,7 @@ export const Lobby: React.FC<LobbyProps> = ({
     }
     return (
       <div className={`lobby-slot ${slotSide}`}>
-        <span className="lobby-slot-avatar">{isMe ? profile.avatar : opponent?.avatar || '🤖'}</span>
+        <span className="lobby-slot-avatar"><Avatar value={isMe ? profile.avatar : opponent?.avatar} size={16} /></span>
         <div>
           <strong>{isMe ? profile.username : opponent?.username || t('player.opponent')}</strong>
           <span>{slotSide === 'red' ? t('lobby.host') : t('lobby.guest')}</span>

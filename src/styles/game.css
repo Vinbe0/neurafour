@@ -421,9 +421,9 @@
   font-size: 12px;
 }
 
-.player-card.won .player-name::after {
-  content: ' ✓';
-  color: var(--success);
+.player-won {
+  flex: 0 0 auto;
+  color: var(--warning);
 }
 
 .thinking-dots {

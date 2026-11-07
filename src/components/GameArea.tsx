@@ -415,10 +415,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
   // Names shown for each colour
   function playerLabels(): Record<PlayerType, PlayerLabel> {
     const me = { name: profile.username, avatar: profile.avatar, detail: t('player.you') };
-    const them = { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || '🤖', detail: t('player.opponent') };
+    const them = { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || 'bot', detail: t('player.opponent') };
     if (gameMode === 'multiplayer') return side === 'red' ? { red: me, yellow: them } : { red: them, yellow: me };
-    if (gameMode === 'local') return { red: { name: t('player.red'), avatar: profile.avatar }, yellow: { name: t('player.yellow'), avatar: '👤' } };
-    return { red: me, yellow: { name: `${t('player.ai')} · ${t(`settings.${difficulty}`)}`, avatar: '🧠', detail: t('player.engine') } };
+    if (gameMode === 'local') return { red: { name: t('player.red'), avatar: profile.avatar }, yellow: { name: t('player.yellow'), avatar: 'user' } };
+    return { red: me, yellow: { name: `${t('player.ai')} · ${t(`settings.${difficulty}`)}`, avatar: 'cpu', detail: t('player.engine') } };
   }
 
   function statusText(): string {

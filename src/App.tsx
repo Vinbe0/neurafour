@@ -17,6 +17,7 @@ import { getSupabase, hasStoredSession, whenSupabaseLoads } from './utils/supaba
 import type { Session } from '@supabase/supabase-js';
 import { CodeXml } from 'lucide-react';
 import { useI18n } from './i18n';
+import { DEFAULT_AVATAR, normalizeAvatar } from './avatars';
 
 const STORAGE_PROFILE_KEY = 'neurafour_user_profile_v2';
 const STORAGE_HISTORY_KEY = 'neurafour_match_history_v2';
@@ -50,7 +51,7 @@ const ALL_SKINS = ['cyber-neon', 'retro-arcade', 'space-obsidian', 'royal-gold']
 const DEFAULT_PROFILE: UserProfile = {
   username: 'NetRunner_1',
   city: 'Almaty (Алматы)',
-  avatar: '🤖',
+  avatar: DEFAULT_AVATAR,
   points: 150, // Starting point balance to let them explore the shop
   isPro: false,
   unlockedSkins: ['cyber-neon'],
@@ -94,7 +95,9 @@ function App() {
     try {
       const storedProfile = localStorage.getItem(STORAGE_PROFILE_KEY);
       if (storedProfile) {
-        setProfile(JSON.parse(storedProfile));
+        const saved = JSON.parse(storedProfile) as UserProfile;
+        // Older profiles stored an emoji avatar
+        setProfile({ ...saved, avatar: normalizeAvatar(saved.avatar) });
       }
       
       const storedHistory = localStorage.getItem(STORAGE_HISTORY_KEY);

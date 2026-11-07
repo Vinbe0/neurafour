@@ -130,3 +130,16 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Icon avatars (see components/Avatar.tsx): every avatar circle centres its icon */
+.profile-avatar,
+.player-avatar,
+.chat-avatar,
+.lb-avatar,
+.lobby-slot-avatar,
+.account-avatar-preview,
+.avatar-grid button {
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+}

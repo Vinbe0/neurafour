@@ -11,7 +11,7 @@ export const preparePlayer = async (context: BrowserContext, username: string) =
     localStorage.setItem('neurafour_user_profile_v2', JSON.stringify({
       username: name,
       city: 'London',
-      avatar: '🤖',
+      avatar: 'bot',
       points: 150,
       isPro: false,
       unlockedSkins: ['cyber-neon'],

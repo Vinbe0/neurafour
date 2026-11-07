@@ -38,7 +38,7 @@ set role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
 
 -- Creating a profile is allowed, and it starts with the guest balance
-insert into public.profiles (id, username, city, avatar) values (auth.uid(), 'Alice', 'London', '🤖');
+insert into public.profiles (id, username, city, avatar) values (auth.uid(), 'Alice', 'London', 'bot');
 select test.expect_equal((select points::text from public.profiles), '150', 'starting points');
 
 -- Score columns cannot be written directly

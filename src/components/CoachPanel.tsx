@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Brain, ChevronLeft, ChevronRight, Crown, Info } from 'lucide-react';
+import { ArrowLeft, Brain, Check, ChevronLeft, ChevronRight, CircleAlert, Crown, Info, OctagonX, Sparkles, Star } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { MoveAnalysis, MoveGrade, PlayerType } from '../types';
 import { playClick } from '../sound';
 import { COLS, ROWS } from '../ai';
@@ -14,12 +15,13 @@ interface CoachPanelProps {
 
 const GRADES: MoveGrade[] = ['perfect', 'great', 'good', 'mistake', 'blunder'];
 
-const GRADE_SYMBOLS: Record<MoveGrade, string> = {
-  perfect: '★',
-  great: '!',
-  good: '✓',
-  mistake: '?',
-  blunder: '!!',
+// Icon for each move grade, used in the summary and the move strip
+const GRADE_ICONS: Record<MoveGrade, LucideIcon> = {
+  perfect: Star,
+  great: Sparkles,
+  good: Check,
+  mistake: CircleAlert,
+  blunder: OctagonX,
 };
 
 
@@ -118,7 +120,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
             <div className="grade-list">
               {GRADES.map((grade) => (
                 <div key={grade} className={`grade-row grade-${grade}`}>
-                  <span>{GRADE_SYMBOLS[grade]} {t(`grade.${grade}`)}</span>
+                  <span className="grade-label"><GradeIcon grade={grade} /> {t(`grade.${grade}`)}</span>
                   <strong>{summary.counts[grade]}</strong>
                 </div>
               ))}
@@ -146,7 +148,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
                     onClick={() => selectTurn(item.turn)}
                   >
                     <span>#{item.turn}</span>
-                    <b>{GRADE_SYMBOLS[item.grade]}</b>
+                    <b><GradeIcon grade={item.grade} /></b>
                   </button>
                 ))}
               </div>
@@ -242,4 +244,9 @@ function formatEval(value: number) {
   if (!Number.isFinite(value)) return '0';
   if (value > 0) return `+${Math.round(value)}`;
   return String(Math.round(value));
+}
+
+function GradeIcon({ grade }: { grade: MoveGrade }) {
+  const Icon = GRADE_ICONS[grade];
+  return <Icon size={13} strokeWidth={2.2} aria-hidden="true" />;
 }

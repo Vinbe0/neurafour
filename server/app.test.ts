@@ -78,10 +78,10 @@ const connect = async (options: { origin?: string; autoPong?: boolean } = {}): P
 // Host creates a room and a guest joins it; returns both clients and the code
 const startMatch = async () => {
   const host = await connect();
-  host.send({ type: 'create_room', username: 'Host', avatar: '🧠' });
+  host.send({ type: 'create_room', username: 'Host', avatar: 'brain' });
   const { roomCode, token: hostToken } = await host.next('room_created');
   const guest = await connect();
-  guest.send({ type: 'join_room', roomCode, username: 'Guest', avatar: '👾' });
+  guest.send({ type: 'join_room', roomCode, username: 'Guest', avatar: 'ghost' });
   const { token: guestToken } = await guest.next('room_joined');
   await host.next('opponent_joined');
   await Promise.all([host.next('game_start'), guest.next('game_start')]);
@@ -103,15 +103,15 @@ describe('rooms', () => {
 
   it('creates a room and lets a second player join it', async () => {
     const host = await connect();
-    host.send({ type: 'create_room', username: '  Host  ', avatar: '🧠' });
+    host.send({ type: 'create_room', username: '  Host  ', avatar: 'brain' });
     const created = await host.next('room_created');
     expect(created.roomCode).toMatch(/^[A-Z2-9]{5}$/);
     expect(created.side).toBe('red');
 
     const guest = await connect();
-    guest.send({ type: 'join_room', roomCode: String(created.roomCode).toLowerCase(), username: 'Guest', avatar: '👾' });
+    guest.send({ type: 'join_room', roomCode: String(created.roomCode).toLowerCase(), username: 'Guest', avatar: 'ghost' });
     const joined = await guest.next('room_joined');
-    expect(joined).toMatchObject({ side: 'yellow', opponent: { username: 'Host', avatar: '🧠' } });
+    expect(joined).toMatchObject({ side: 'yellow', opponent: { username: 'Host', avatar: 'brain' } });
     expect(await host.next('opponent_joined')).toMatchObject({ opponent: { username: 'Guest' } });
   });
 

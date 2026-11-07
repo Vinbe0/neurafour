@@ -3,6 +3,7 @@ import { MessageSquare, Send } from 'lucide-react';
 import type { ChatMessage } from '../types';
 import { playClick } from '../sound';
 import { useI18n } from '../i18n';
+import { Avatar } from './Avatar';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -51,7 +52,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, ownName, onSend,
             const isSelf = msg.username === ownName;
             return (
               <div key={msg.id} className={`chat-message ${isSelf ? 'self' : ''}`}>
-                <span className="chat-avatar">{msg.avatar}</span>
+                <span className="chat-avatar"><Avatar value={msg.avatar} size={13} /></span>
                 <div>
                   <span className="chat-meta">{msg.username} • {timeOf(msg)}</span>
                   <p className="chat-bubble">{msg.text}</p>
