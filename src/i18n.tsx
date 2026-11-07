@@ -247,6 +247,13 @@ const en = {
   'lb.none': 'No players found.',
 
   // Footer
+  'eval.label': 'Evaluation',
+  'eval.toggle': 'Evaluation bar',
+  'eval.toggleHint': 'Live engine assessment of the position',
+  'eval.level': 'Equal position',
+  'eval.better': '{side} is better',
+  'eval.mate': '{side} wins in {n}',
+  'eval.won': '{side} won',
   'footer.text': 'NeuraFour · Built with React, TypeScript and a minimax AI',
   'footer.source': 'Source on GitHub',
 };
@@ -478,6 +485,13 @@ const ru: Record<TranslationKey, string> = {
   'lb.yourScore': 'Ваши очки',
   'lb.none': 'Игроки не найдены.',
 
+  'eval.label': 'Оценка',
+  'eval.toggle': 'Шкала оценки',
+  'eval.toggleHint': 'Оценка позиции движком в реальном времени',
+  'eval.level': 'Равная позиция',
+  'eval.better': '{side}: преимущество',
+  'eval.mate': '{side}: форсированная победа (ходов: {n})',
+  'eval.won': '{side}: победа',
   'footer.text': 'NeuraFour · React, TypeScript и ИИ на минимаксе',
   'footer.source': 'Исходный код на GitHub',
 };

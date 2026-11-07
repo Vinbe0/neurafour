@@ -76,3 +76,19 @@ test('every dialog loads when opened', async ({ page }) => {
   await page.locator('.header-profile').click();
   await expect(page.getByRole('heading', { name: 'Tester' })).toBeVisible();
 });
+
+test('the evaluation bar follows the game and can be switched off', async ({ page }) => {
+  await page.goto('/');
+  const bar = page.getByRole('img', { name: /^Evaluation:/ });
+  await expect(bar).toBeVisible();
+
+  await dropInColumn(page, 4);
+  await expect(moveList(page)).toHaveCount(2);
+  await expect(bar).toHaveAttribute('aria-label', /^Evaluation: .*\((\+|-)?\d+\.\d|M\d+\)$/);
+
+  await page.getByRole('switch', { name: /Evaluation bar/ }).uncheck();
+  await expect(bar).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('switch', { name: /Evaluation bar/ })).not.toBeChecked();
+  await expect(page.getByRole('img', { name: /^Evaluation:/ })).toHaveCount(0);
+});

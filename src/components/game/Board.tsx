@@ -24,6 +24,8 @@ interface BoardProps {
   hintColumn: number | null;
   onHover: (column: number | null) => void;
   onColumnClick: (column: number) => void;
+  // Shown to the left of the grid (the evaluation bar)
+  aside?: React.ReactNode;
 }
 
 const cells = Array.from({ length: ROWS * COLS }, (_, i) => [Math.floor(i / COLS), i % COLS] as const);
@@ -34,7 +36,7 @@ const cells = Array.from({ length: ROWS * COLS }, (_, i) => [Math.floor(i / COLS
 // focus and screen readers.
 export const Board: React.FC<BoardProps> = ({
   board, skin, currentPlayer, winner, winningCells, isGameOver, lastMove,
-  canPlay, hoveredColumn, hintColumn, onHover, onColumnClick,
+  canPlay, hoveredColumn, hintColumn, onHover, onColumnClick, aside,
 }) => {
   const { t } = useI18n();
   const previewColumn = canPlay && hoveredColumn !== null && isColumnAvailable(board, hoveredColumn) ? hoveredColumn : null;
@@ -43,7 +45,8 @@ export const Board: React.FC<BoardProps> = ({
   const isWinning = (r: number, c: number) => winningCells.some(([wr, wc]) => wr === r && wc === c);
 
   return (
-    <div className={`board ${SKIN_CLASSES[skin] ?? 'skin-classic'} ${canPlay ? '' : 'board-waiting'}`} onMouseLeave={() => onHover(null)}>
+    <div className={`board ${SKIN_CLASSES[skin] ?? 'skin-classic'} ${canPlay ? '' : 'board-waiting'} ${aside ? 'has-aside' : ''}`} onMouseLeave={() => onHover(null)}>
+      {aside && <div className="board-aside">{aside}</div>}
       <div className="board-columns">
         {Array.from({ length: COLS }, (_, c) => (
           <button

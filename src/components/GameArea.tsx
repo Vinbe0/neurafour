@@ -9,7 +9,8 @@ import { Lobby } from './Lobby';
 import { ChatPanel } from './ChatPanel';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
-import { requestAnalysis, requestBestMove } from '../aiClient';
+import { requestAnalysis, requestBestMove, requestEvaluation } from '../aiClient';
+import type { Evaluation } from '../ai';
 import { useConfetti } from '../hooks/useConfetti';
 import { useKeyboardControls } from '../hooks/useKeyboardControls';
 import { Board } from './game/Board';
@@ -18,6 +19,7 @@ import type { PlayerLabel } from './game/PlayerCard';
 import { AISettings } from './game/AISettings';
 import { RoomBar } from './game/RoomBar';
 import { MoveList } from './game/MoveList';
+import { EvalBar } from './game/EvalBar';
 
 interface GameAreaProps {
   // False while another screen (the AI Coach) covers the game; keyboard controls pause
@@ -46,6 +48,17 @@ interface GameAreaProps {
   // Set after a page reload: the online game so far, to rebuild the board from
   restoredMoves: RoomMove[] | null;
 }
+
+const STORAGE_EVAL_KEY = 'neurafour_eval_bar';
+
+// The evaluation bar is on unless the player turned it off
+const loadShowEval = () => {
+  try {
+    return localStorage.getItem(STORAGE_EVAL_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+};
 
 // CyberPoints for beating the AI at each level
 const WIN_BONUS: Record<AIDifficulty, number> = { easy: 10, medium: 20, hard: 50, expert: 80 };
@@ -86,6 +99,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [hintColumn, setHintColumn] = useState<number | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
+  const [showEval, setShowEval] = useState(loadShowEval);
+  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [isHintLoading, setIsHintLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   // Bumped on every reset so a pending AI move from an old game is ignored
@@ -95,6 +110,31 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const { canvasRef, start: startConfetti, stop: stopConfetti } = useConfetti();
 
   const isGameOver = isGameOverState(game);
+  // Hidden in online games so neither player gets engine help
+  const evalVisible = showEval && gameMode !== 'multiplayer';
+
+  // Ask the engine (in the worker) for a fresh evaluation after every move
+  useEffect(() => {
+    if (!evalVisible || isGameOver) return;
+    let cancelled = false;
+    void requestEvaluation(board, currentPlayer).then((result) => {
+      if (!cancelled) setEvaluation(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, evalVisible, isGameOver]);
+
+  const toggleEval = (value: boolean) => {
+    playClick();
+    setShowEval(value);
+    try {
+      localStorage.setItem(STORAGE_EVAL_KEY, value ? 'on' : 'off');
+    } catch {
+      // the setting still applies for this visit
+    }
+  };
   // Online: stay on the lobby screen (room code, invite link, chat) until the opponent arrives
   const inLobby = gameMode === 'multiplayer' && (!roomCode || !opponent);
 
@@ -422,6 +462,16 @@ export const GameArea: React.FC<GameAreaProps> = ({
             />
           )}
 
+          {gameMode !== 'multiplayer' && (
+            <label className="panel toggle-row">
+              <span>
+                <strong>{t('eval.toggle')}</strong>
+                <small>{t('eval.toggleHint')}</small>
+              </span>
+              <input type="checkbox" role="switch" checked={showEval} onChange={(e) => toggleEval(e.target.checked)} />
+            </label>
+          )}
+
           {gameMode === 'multiplayer' && roomCode && <RoomBar roomCode={roomCode} onLeave={onLeaveLobby} />}
 
           {/* Chat stays available during an online game */}
@@ -449,6 +499,9 @@ export const GameArea: React.FC<GameAreaProps> = ({
             hintColumn={hintColumn}
             onHover={setHoveredCol}
             onColumnClick={handleColumnClick}
+            aside={evalVisible ? (
+              <EvalBar evaluation={evaluation} result={isGameOver ? { winner } : null} bottom={bottom} />
+            ) : undefined}
           />
 
           <div className="board-controls">

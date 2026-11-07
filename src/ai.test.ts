@@ -6,6 +6,7 @@ import {
   checkWin,
   createEmptyBoard,
   getAvailableRow,
+  evaluatePosition,
   getBestMove,
   isBoardFull,
   isColumnAvailable,
@@ -209,5 +210,37 @@ describe('analyzeMatch (AI Coach)', () => {
     analyses.forEach((a, i) => {
       expect(isColumnAvailable(history[i].boardBefore, a.recommendedColumn)).toBe(true);
     });
+  });
+});
+
+describe('evaluatePosition', () => {
+  it('is level on an empty board', () => {
+    expect(Math.abs(evaluatePosition(createEmptyBoard(), 'red', 100).score)).toBeLessThan(150);
+  });
+
+  it('gives the mirrored score when the colours are swapped', () => {
+    const swap = (board: BoardType): BoardType =>
+      board.map((row) => row.map((cell) => (cell === 'red' ? 'yellow' : cell === 'yellow' ? 'red' : null)));
+    for (const moves of [[3, 2], [3, 3, 4], [0, 3, 1, 3, 2]]) {
+      const board = play(moves);
+      const toMove: PlayerType = moves.length % 2 === 0 ? 'red' : 'yellow';
+      const original = evaluatePosition(board, toMove, 80);
+      const mirrored = evaluatePosition(swap(board), toMove === 'red' ? 'yellow' : 'red', 80);
+      expect(mirrored.score).toBeCloseTo(-original.score);
+    }
+  });
+
+  it('reports a win in one when the side to move can win now', () => {
+    // Red has three in column 0 and moves next
+    expect(evaluatePosition(play([0, 6, 0, 6, 0, 5]), 'red', 100)).toMatchObject({ winner: 'red', movesToWin: 1 });
+  });
+
+  it('counts the moves of a forced win and reports it from Red\'s side', () => {
+    // Red on columns 3 and 4 of the bottom row, Yellow above: Red forces a win in two moves
+    expect(evaluatePosition(play([2, 2, 3, 3]), 'red', 300)).toMatchObject({ winner: 'red', movesToWin: 2 });
+    // The same position with the colours swapped is a Yellow win, shown as a negative score
+    const yellowWins = evaluatePosition(play([2, 2, 3, 3], 'yellow'), 'yellow', 300);
+    expect(yellowWins).toMatchObject({ winner: 'yellow', movesToWin: 2 });
+    expect(yellowWins.score).toBeLessThan(0);
   });
 });

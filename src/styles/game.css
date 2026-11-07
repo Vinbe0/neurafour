@@ -618,3 +618,121 @@
     display: none;
   }
 }
+
+/* Evaluation bar ------------------------------------------------------- */
+
+.board.has-aside {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  column-gap: 10px;
+}
+
+.board.has-aside .board-columns { grid-column: 2; }
+.board.has-aside .board-grid { grid-column: 2; grid-row: 2; }
+
+.board-aside {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+}
+
+.eval-bar {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--yellow);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* The bar's top colour is whichever player is not at the bottom */
+.eval-bar:has(.eval-fill.yellow) {
+  background: var(--red);
+}
+
+.eval-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: height 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.eval-fill.red { background: var(--red); }
+.eval-fill.yellow { background: var(--yellow); }
+
+.eval-bar.loading .eval-fill {
+  height: 50% !important;
+  opacity: 0.6;
+}
+
+.eval-text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  /* Solid black reads on both red (5.4:1) and yellow */
+  color: #000;
+}
+
+.eval-text.at-bottom { bottom: 4px; }
+.eval-text.at-top { top: 4px; }
+
+/* Setting switch in the setup column */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.toggle-row strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.toggle-row small {
+  display: block;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.toggle-row input {
+  appearance: none;
+  position: relative;
+  width: 32px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--surface-3);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.toggle-row input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease;
+}
+
+.toggle-row input:checked {
+  background: var(--accent-fill);
+}
+
+.toggle-row input:checked::after {
+  transform: translateX(14px);
+}
