@@ -10,6 +10,8 @@ export type GameMode = 'local' | 'ai' | 'multiplayer';
 export interface StartPreset {
   mode: GameMode;
   difficulty?: AIDifficulty;
+  // Column of the first move, when the game was started from the home page board
+  firstMove?: number;
 }
 
 // One move of an online game, as the server records it

@@ -7,14 +7,24 @@ test.beforeEach(async ({ context }) => {
 
 test('the home page shows the engine playing itself', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('14 moves ahead');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Four in a row.');
   const demo = page.getByRole('group', { name: /Live demo/ });
   await expect(demo).toBeVisible();
   // The demo plays on its own: moves keep appearing
   await expect(demo.locator('.c4-token:not(.ghost)').nth(2)).toBeVisible({ timeout: 10_000 });
 });
 
-test('a quick start tile opens the game with that opponent, and back returns home', async ({ page }) => {
+test('dropping a disc on the home board starts a game with that move', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.hero-board').getByRole('button', { name: 'Column 3', exact: true }).click();
+  await expect(page).toHaveURL(/#\/play$/);
+  await expect(page.locator('.player-card.yellow')).toContainText('AI · Medium');
+  // Your disc in column 3, then the AI answers
+  await expect(moveList(page).first()).toContainText('3');
+  await expect(moveList(page)).toHaveCount(2);
+});
+
+test('an opponent column opens the game with that level, and back returns home', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /^Expert/ }).click();
   await expect(page).toHaveURL(/#\/play$/);

@@ -1,43 +1,40 @@
-import React from 'react';
-import { ArrowRight, Bot, Cpu, Gauge, GraduationCap, Swords, Users, Wifi, Zap, Brain, Target } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import type { StartPreset } from '../../types';
+import React, { useState } from 'react';
+import { ArrowRight } from 'lucide-react';
+import type { AIDifficulty, StartPreset } from '../../types';
 import type { TranslationKey } from '../../i18n';
 import { useI18n } from '../../i18n';
 import { playClick } from '../../sound';
-import { DemoGame } from './DemoGame';
+import { createEmptyBoard } from '../../rules';
+import { Board } from '../game/Board';
+import { EngineRoom } from './EngineRoom';
 
 interface HomePageProps {
   onStart: (preset: StartPreset) => void;
 }
 
-interface QuickStart {
-  preset: StartPreset;
-  icon: LucideIcon;
-  title: TranslationKey;
-  detail: TranslationKey;
-}
-
-// Like a chess site's quick pairing: one click starts a game with these settings
-const QUICK_STARTS: QuickStart[] = [
-  { preset: { mode: 'ai', difficulty: 'easy' }, icon: Bot, title: 'settings.easy', detail: 'home.easyDetail' },
-  { preset: { mode: 'ai', difficulty: 'medium' }, icon: Brain, title: 'settings.medium', detail: 'home.mediumDetail' },
-  { preset: { mode: 'ai', difficulty: 'hard' }, icon: Target, title: 'settings.hard', detail: 'home.hardDetail' },
-  { preset: { mode: 'ai', difficulty: 'expert' }, icon: Zap, title: 'settings.expert', detail: 'home.expertDetail' },
-  { preset: { mode: 'local' }, icon: Users, title: 'home.localTitle', detail: 'home.localDetail' },
-  { preset: { mode: 'multiplayer' }, icon: Wifi, title: 'home.onlineTitle', detail: 'home.onlineDetail' },
+// How many plies each level searches, drawn as discs in a board column
+const LEVELS: { difficulty: AIDifficulty; plies: number; label: TranslationKey }[] = [
+  { difficulty: 'easy', plies: 2, label: 'home.levelEasy' },
+  { difficulty: 'medium', plies: 4, label: 'home.levelMedium' },
+  { difficulty: 'hard', plies: 6, label: 'home.levelHard' },
+  { difficulty: 'expert', plies: 14, label: 'home.levelExpert' },
 ];
 
-const FEATURES: { icon: LucideIcon; title: TranslationKey; body: TranslationKey }[] = [
-  { icon: Cpu, title: 'home.featureEngineTitle', body: 'home.featureEngineBody' },
-  { icon: Gauge, title: 'home.featureEvalTitle', body: 'home.featureEvalBody' },
-  { icon: GraduationCap, title: 'home.featureCoachTitle', body: 'home.featureCoachBody' },
-  { icon: Swords, title: 'home.featureOnlineTitle', body: 'home.featureOnlineBody' },
+const NOTES: { title: TranslationKey; body: TranslationKey }[] = [
+  { title: 'home.noteEngineTitle', body: 'home.noteEngineBody' },
+  { title: 'home.noteEvalTitle', body: 'home.noteEvalBody' },
+  { title: 'home.noteCoachTitle', body: 'home.noteCoachBody' },
+  { title: 'home.noteOnlineTitle', body: 'home.noteOnlineBody' },
 ];
 
-// Landing page: what NeuraFour is, a live engine game, and one-click ways to start playing
+const emptyBoard = createEmptyBoard();
+const COLUMN_HEIGHT = 6;
+
+// The home page is built around the board: drop a disc to start playing, pick an
+// opponent by how deep it searches, and watch the engine play itself
 export const HomePage: React.FC<HomePageProps> = ({ onStart }) => {
   const { t } = useI18n();
+  const [hovered, setHovered] = useState<number | null>(null);
 
   const start = (preset: StartPreset) => {
     playClick();
@@ -46,64 +43,111 @@ export const HomePage: React.FC<HomePageProps> = ({ onStart }) => {
 
   return (
     <div className="home">
-      <section className="home-hero">
-        <div className="hero-copy">
-          <span className="hero-eyebrow">{t('home.eyebrow')}</span>
-          <h1>{t('home.title')}</h1>
+      <section className="hero">
+        <div className="hero-text">
+          <h1 className="hero-title">
+            <span>{t('home.titleLine1')}</span>
+            <span className="hero-title-quiet">{t('home.titleLine2')}</span>
+          </h1>
           <p className="hero-lead">{t('home.lead')}</p>
 
-          <div className="hero-actions">
-            <button className="btn primary hero-cta" onClick={() => start({ mode: 'ai', difficulty: 'medium' })}>
-              <Bot size={16} />
-              {t('home.playAi')}
-              <ArrowRight size={15} />
+          <p className="hero-prompt">
+            <i className="disc red" aria-hidden="true" />
+            {t('home.prompt')}
+          </p>
+
+          <div className="hero-links">
+            <button className="text-link" onClick={() => start({ mode: 'multiplayer' })}>
+              {t('home.linkOnline')} <ArrowRight size={14} />
             </button>
-            <button className="btn hero-cta" onClick={() => start({ mode: 'multiplayer' })}>
-              <Wifi size={16} />
-              {t('home.playFriend')}
+            <button className="text-link" onClick={() => start({ mode: 'local' })}>
+              {t('home.linkLocal')} <ArrowRight size={14} />
             </button>
           </div>
-
-          <dl className="hero-stats">
-            <div><dt>14+</dt><dd>{t('home.statDepth')}</dd></div>
-            <div><dt>4</dt><dd>{t('home.statLevels')}</dd></div>
-            <div><dt>EN · RU</dt><dd>{t('home.statLanguages')}</dd></div>
-          </dl>
         </div>
 
-        <DemoGame />
-      </section>
-
-      <section className="home-section" aria-labelledby="quick-start-title">
-        <div className="section-heading">
-          <h2 id="quick-start-title">{t('home.quickTitle')}</h2>
-          <p>{t('home.quickLead')}</p>
-        </div>
-        <div className="quick-grid">
-          {QUICK_STARTS.map(({ preset, icon: Icon, title, detail }) => (
-            <button key={title} className="quick-tile" onClick={() => start(preset)}>
-              <span className="quick-icon"><Icon size={18} /></span>
-              <span className="quick-title">{t(title)}</span>
-              <span className="quick-detail">{t(detail)}</span>
-            </button>
-          ))}
+        <div className="hero-board">
+          <div className="hero-board-caption">
+            <span><i className="disc red" /> {t('player.you')}</span>
+            <span className="engine-vs">vs</span>
+            <span><i className="disc yellow" /> {t('home.heroOpponent')}</span>
+          </div>
+          <Board
+            board={emptyBoard}
+            skin="cyber-neon"
+            currentPlayer="red"
+            winner={null}
+            winningCells={[]}
+            isGameOver={false}
+            lastMove={undefined}
+            canPlay
+            hoveredColumn={hovered}
+            hintColumn={null}
+            onHover={setHovered}
+            onColumnClick={(column) => start({ mode: 'ai', difficulty: 'medium', firstMove: column })}
+          />
         </div>
       </section>
 
-      <section className="home-section" aria-labelledby="features-title">
-        <div className="section-heading">
-          <h2 id="features-title">{t('home.featuresTitle')}</h2>
-          <p>{t('home.featuresLead')}</p>
+      <section className="home-band" aria-labelledby="levels-title">
+        <div className="band-head">
+          <h2 id="levels-title">{t('home.levelsTitle')}</h2>
+          <p>{t('home.levelsLead')}</p>
         </div>
-        <div className="feature-grid">
-          {FEATURES.map(({ icon: Icon, title, body }) => (
-            <article key={title} className="feature-card">
-              <span className="feature-icon"><Icon size={18} /></span>
+
+        <div className="depth-columns">
+          {LEVELS.map(({ difficulty, plies, label }) => {
+            const shown = Math.min(plies, COLUMN_HEIGHT);
+            return (
+              <button
+                key={difficulty}
+                className={`depth-column ${plies > COLUMN_HEIGHT ? 'overflow' : ''}`}
+                onClick={() => start({ mode: 'ai', difficulty })}
+              >
+                <span className="depth-stack" aria-hidden="true">
+                  {plies > COLUMN_HEIGHT && <span className="depth-more">+{plies - COLUMN_HEIGHT}</span>}
+                  {Array.from({ length: COLUMN_HEIGHT }, (_, i) => {
+                    const fromBottom = COLUMN_HEIGHT - 1 - i;
+                    const filled = fromBottom < shown;
+                    return (
+                      <span
+                        key={i}
+                        className={`depth-hole ${filled ? (fromBottom % 2 === 0 ? 'red' : 'yellow') : ''}`}
+                        style={{ '--i': fromBottom } as React.CSSProperties}
+                      />
+                    );
+                  })}
+                </span>
+                <span className="depth-name">{t(`settings.${difficulty}`)}</span>
+                <span className="depth-plies">{t(label)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="home-band" aria-labelledby="engine-title">
+        <div className="band-head">
+          <h2 id="engine-title">{t('home.engineTitle')}</h2>
+          <p>{t('home.engineLead')}</p>
+        </div>
+        <EngineRoom />
+      </section>
+
+      <section className="home-band" aria-labelledby="notes-title">
+        <div className="band-head">
+          <h2 id="notes-title">{t('home.notesTitle')}</h2>
+          <p>{t('home.notesLead')}</p>
+        </div>
+        <ol className="notes">
+          {NOTES.map(({ title, body }, i) => (
+            <li key={title}>
+              <span className="note-number">{String(i + 1).padStart(2, '0')}</span>
               <h3>{t(title)}</h3>
               <p>{t(body)}</p>
-            </article>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
     </div>
   );
