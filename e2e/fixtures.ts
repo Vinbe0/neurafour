@@ -25,4 +25,5 @@ export const preparePlayer = async (context: BrowserContext, username: string) =
 export const dropInColumn = (page: Page, column: number) =>
   page.getByRole('button', { name: `Column ${column}`, exact: true }).click();
 
-export const moveList = (page: Page) => page.locator('.move-list li');
+// Every move played, in order (moves are shown in numbered pairs)
+export const moveList = (page: Page) => page.locator('.move-list .move');

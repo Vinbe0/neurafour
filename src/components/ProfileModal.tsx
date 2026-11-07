@@ -54,7 +54,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content account-modal glass-panel">
+      <div className="modal-content account-modal panel">
         <button className="modal-close" onClick={() => { playClick(); onClose(); }} aria-label={t('auth.close')}>
           <X size={20} />
         </button>
@@ -115,21 +115,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <div className="account-edit-card">
             <h3><User size={17} /> {t('profile.settings')}</h3>
 
-            <label className="cyber-label" htmlFor="profile-nickname">{t('profile.nickname')}</label>
+            <label className="field-label" htmlFor="profile-nickname">{t('profile.nickname')}</label>
             <input
               id="profile-nickname"
               type="text"
-              className="cyber-input"
+              className="input"
               value={username}
               maxLength={18}
               onChange={(e) => setUsername(e.target.value)}
               placeholder={t('profile.nicknamePlaceholder')}
             />
 
-            <label className="cyber-label" htmlFor="profile-city">{t('profile.city')}</label>
+            <label className="field-label" htmlFor="profile-city">{t('profile.city')}</label>
             <select
               id="profile-city"
-              className="cyber-input"
+              className="input"
               value={city}
               onChange={(e) => setCity(e.target.value)}
             >
@@ -140,7 +140,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               ))}
             </select>
 
-            <span className="cyber-label" id="profile-avatar-label">{t('profile.avatar')}</span>
+            <span className="field-label" id="profile-avatar-label">{t('profile.avatar')}</span>
             <div className="avatar-grid" role="group" aria-labelledby="profile-avatar-label">
               {AVATARS.map((av) => (
                 <button
@@ -197,7 +197,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
         </section>
 
-        <button className="glass-button active account-save" onClick={handleSave}>
+        <button className="btn active account-save" onClick={handleSave}>
           <Save size={16} />
           {t('profile.save')}
         </button>

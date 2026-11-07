@@ -82,11 +82,10 @@ export interface SkinItem {
   name: string;
   nameRu: string;
   price: number;
-  boardClass: string;
+  // Colours for the small preview in the shop
+  boardColor: string;
   redColor: string;
   yellowColor: string;
-  redGlow: string;
-  yellowGlow: string;
   description: string;
   descriptionRu: string;
 }

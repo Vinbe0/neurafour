@@ -12,12 +12,14 @@
 
 - **AI opponent, four levels.** Easy looks 2 moves ahead (with some random play), Medium 4, Hard 6, and Expert searches as deep as it can in 750 ms, usually 14+ moves. The search runs in a Web Worker, so the page never freezes while the AI thinks.
 - **Online multiplayer.** Create a room, share the invite link, and play a friend in real time over WebSockets, with chat and rematches. Reloading the page drops you back into the same game.
+- **Evaluation bar.** After every move the engine scores the position in the background and a bar beside the board shows who is ahead, with "M5" when it finds a forced win in five moves. It is hidden in online games and can be switched off.
 - **AI Coach.** After each game, every move is graded (perfect / great / good / mistake / blunder) against the engine's best move. The coach points out missed wins, missed blocks and moves that handed your opponent a win.
 - **Accounts and leaderboard.** Supabase auth, with a global and per-city leaderboard and match history. Scores are computed in the database, not trusted from the browser ([details](#leaderboard-security)). It works offline too, using a localStorage cache.
 - **Progression.** Levels, CyberPoints, a skin shop, and a PRO tier prototype.
 - **English / Russian interface.** A full translation system with a one-click switch. It remembers your choice and defaults to your browser's language.
 - **Play your way.** Keyboard controls (`1`–`7`, or `←`/`→` + `Enter`, and `U` to undo), undo, a choice of who moves first against the AI, a live move list, and a ghost preview of where your token will land.
-- Dark/light theme, responsive layout down to phone width, sound effects, a highlighted winning line, and in-app notifications. Animations are reduced if your system asks for less motion.
+- **A lichess-style layout.** Game setup on the left, the board in the middle, and the players with a numbered move list on the right. The board is built in layers, so a dropped disc falls *behind* the board face and shows through the holes. Calm dark and light themes come from one set of design tokens (`src/styles/tokens.css`).
+- Dark/light theme (remembered), responsive layout down to phone width, sound effects, a highlighted winning line, and in-app notifications. Animations are reduced if your system asks for less motion.
 
 ## How the AI works
 

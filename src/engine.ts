@@ -14,7 +14,8 @@ const SIZE = ROWS * COLS;
 const CENTER_COL = 3;
 
 export const WIN_SCORE = 100_000_000;
-const WIN_THRESHOLD = WIN_SCORE - 1000;
+// Scores beyond this are forced wins (WIN_SCORE minus the plies needed)
+export const WIN_THRESHOLD = WIN_SCORE - 1000;
 const MAX_DEPTH = SIZE;
 
 // Center-first ordering gives alpha-beta the most cutoffs
@@ -193,6 +194,10 @@ export interface SearchOptions {
   maxDepth: number;
   // Stop after this many milliseconds and return the last finished iteration
   timeMs?: number;
+  // Score leaves the same way for both players (own minus opponent's evaluation).
+  // Off by default, which matches the original minimax; the evaluation bar turns it on
+  // so the score does not shift with whose turn it is.
+  symmetric?: boolean;
 }
 
 export interface SearchResult {
@@ -225,7 +230,9 @@ export const search = (board: BoardType, player: PlayerType, options: SearchOpti
     nodes++;
     if ((nodes & 2047) === 0 && performance.now() > deadline) throw new SearchAborted();
 
-    const leaf = () => (side === rootSide ? 1 : -1) * pos.evaluate(rootSide);
+    const leaf = () => options.symmetric
+      ? (pos.evaluate(side) - pos.evaluate(side ^ 1)) / 2
+      : (side === rootSide ? 1 : -1) * pos.evaluate(rootSide);
     if (depth === 0 || pos.moves === SIZE) return leaf();
 
     const key = pos.key();

@@ -1,6 +1,7 @@
 import { runRequest } from './aiRequests';
 import type { AIRequest, AIResponse, HistoryStep } from './aiRequests';
 import type { AIDifficulty, BoardType, PlayerType } from './types';
+import type { Evaluation } from './ai';
 
 // Runs AI searches in a Web Worker so the page stays responsive while the engine
 // thinks. Falls back to running on the main thread if workers are unavailable.
@@ -64,4 +65,9 @@ export const requestBestMove = async (board: BoardType, difficulty: AIDifficulty
 export const requestAnalysis = async (history: HistoryStep[], isPro: boolean) => {
   const response = await send({ kind: 'analyze', history, isPro });
   return response.kind === 'analyze' ? response.analyses : [];
+};
+
+export const requestEvaluation = async (board: BoardType, toMove: PlayerType): Promise<Evaluation | null> => {
+  const response = await send({ kind: 'evaluate', board, toMove });
+  return response.kind === 'evaluate' ? response.evaluation : null;
 };

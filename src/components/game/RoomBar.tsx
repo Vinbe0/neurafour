@@ -21,16 +21,16 @@ export const RoomBar: React.FC<RoomBarProps> = ({ roomCode, onLeave }) => {
   };
 
   return (
-    <section className="glass-panel room-card">
+    <section className="panel room-card">
       <div>
         <span className="panel-label">{t('lobby.room')}</span>
         <strong className="room-code">{roomCode}</strong>
       </div>
       <div className="room-actions">
-        <button className="glass-button" onClick={copyInvite} title={t('lobby.copy')} aria-label={t('lobby.copy')}>
+        <button className="btn" onClick={copyInvite} title={t('lobby.copy')} aria-label={t('lobby.copy')}>
           {copied ? <Check size={14} /> : <Copy size={14} />}
         </button>
-        <button className="glass-button" onClick={onLeave} title={t('lobby.leave')} aria-label={t('lobby.leave')}>
+        <button className="btn" onClick={onLeave} title={t('lobby.leave')} aria-label={t('lobby.leave')}>
           <LogOut size={14} />
         </button>
       </div>

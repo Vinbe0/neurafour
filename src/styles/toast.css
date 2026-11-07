@@ -1,0 +1,46 @@
+/* In-app notifications, bottom right */
+
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2000;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-size: 13px;
+  animation: rise-in 0.2s ease-out;
+}
+
+.toast > svg:first-child {
+  flex-shrink: 0;
+  color: var(--toast-color, var(--accent));
+}
+
+.toast span {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast-success { --toast-color: var(--success); }
+.toast-error { --toast-color: var(--danger); }
+
+.toast button {
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+}

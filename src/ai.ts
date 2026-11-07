@@ -1,5 +1,5 @@
 import type { BoardType, CellType, PlayerType, AIDifficulty, MoveAnalysis, MoveGrade } from './types';
-import { search } from './engine';
+import { search, WIN_SCORE, WIN_THRESHOLD } from './engine';
 import { COLS, ROWS, checkWin, getAvailableRow, isColumnAvailable } from './rules';
 
 // Board rules live in rules.ts; re-exported so existing imports keep working
@@ -80,6 +80,25 @@ export const evaluateBoard = (board: BoardType, player: PlayerType): number => {
   }
 
   return score;
+};
+
+// Evaluation bar: how the position stands, from Red's point of view
+export interface Evaluation {
+  // Positive favours Red; heuristic units (an open three is about 100)
+  score: number;
+  // Set when the search proves a forced win
+  winner: PlayerType | null;
+  // Moves the winner needs, counting their winning move
+  movesToWin: number | null;
+}
+
+export const evaluatePosition = (board: BoardType, toMove: PlayerType, timeMs = 150): Evaluation => {
+  const result = search(board, toMove, { maxDepth: ROWS * COLS, timeMs, symmetric: true });
+  const score = toMove === 'red' ? result.score : -result.score;
+  if (Math.abs(result.score) <= WIN_THRESHOLD) return { score, winner: null, movesToWin: null };
+  // A win found at ply p scores WIN_SCORE - p; the winner moves on every other ply
+  const plies = WIN_SCORE - Math.abs(result.score);
+  return { score, winner: score > 0 ? 'red' : 'yellow', movesToWin: Math.ceil(plies / 2) };
 };
 
 // API: Get best move for AI

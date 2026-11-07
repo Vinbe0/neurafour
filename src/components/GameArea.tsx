@@ -9,15 +9,17 @@ import { Lobby } from './Lobby';
 import { ChatPanel } from './ChatPanel';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
-import { requestAnalysis, requestBestMove } from '../aiClient';
+import { requestAnalysis, requestBestMove, requestEvaluation } from '../aiClient';
+import type { Evaluation } from '../ai';
 import { useConfetti } from '../hooks/useConfetti';
 import { useKeyboardControls } from '../hooks/useKeyboardControls';
 import { Board } from './game/Board';
-import { StatusCard } from './game/StatusCard';
-import type { PlayerLabel } from './game/StatusCard';
+import { PlayerCard } from './game/PlayerCard';
+import type { PlayerLabel } from './game/PlayerCard';
 import { AISettings } from './game/AISettings';
 import { RoomBar } from './game/RoomBar';
 import { MoveList } from './game/MoveList';
+import { EvalBar } from './game/EvalBar';
 
 interface GameAreaProps {
   // False while another screen (the AI Coach) covers the game; keyboard controls pause
@@ -46,6 +48,17 @@ interface GameAreaProps {
   // Set after a page reload: the online game so far, to rebuild the board from
   restoredMoves: RoomMove[] | null;
 }
+
+const STORAGE_EVAL_KEY = 'neurafour_eval_bar';
+
+// The evaluation bar is on unless the player turned it off
+const loadShowEval = () => {
+  try {
+    return localStorage.getItem(STORAGE_EVAL_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+};
 
 // CyberPoints for beating the AI at each level
 const WIN_BONUS: Record<AIDifficulty, number> = { easy: 10, medium: 20, hard: 50, expert: 80 };
@@ -86,6 +99,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [hintColumn, setHintColumn] = useState<number | null>(null);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
+  const [showEval, setShowEval] = useState(loadShowEval);
+  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [isHintLoading, setIsHintLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   // Bumped on every reset so a pending AI move from an old game is ignored
@@ -95,6 +110,31 @@ export const GameArea: React.FC<GameAreaProps> = ({
   const { canvasRef, start: startConfetti, stop: stopConfetti } = useConfetti();
 
   const isGameOver = isGameOverState(game);
+  // Hidden in online games so neither player gets engine help
+  const evalVisible = showEval && gameMode !== 'multiplayer';
+
+  // Ask the engine (in the worker) for a fresh evaluation after every move
+  useEffect(() => {
+    if (!evalVisible || isGameOver) return;
+    let cancelled = false;
+    void requestEvaluation(board, currentPlayer).then((result) => {
+      if (!cancelled) setEvaluation(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, evalVisible, isGameOver]);
+
+  const toggleEval = (value: boolean) => {
+    playClick();
+    setShowEval(value);
+    try {
+      localStorage.setItem(STORAGE_EVAL_KEY, value ? 'on' : 'off');
+    } catch {
+      // the setting still applies for this visit
+    }
+  };
   // Online: stay on the lobby screen (room code, invite link, chat) until the opponent arrives
   const inLobby = gameMode === 'multiplayer' && (!roomCode || !opponent);
 
@@ -332,75 +372,120 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
   return (
     <div className="game-page">
-
-      {/* Confetti overlay */}
       <canvas ref={canvasRef} className="confetti-canvas" />
 
-      {/* Mode Switches */}
-      <div className="mode-switch glass-panel" role="tablist">
-        {([
-          ['ai', <Bot size={15} key="ai" />, t('mode.ai')],
-          ['local', <User size={15} key="local" />, t('mode.local')],
-          ['multiplayer', <Users size={15} key="mp" />, t('mode.online')],
-        ] as const).map(([mode, icon, label]) => (
-          <button
-            key={mode}
-            role="tab"
-            aria-selected={gameMode === mode}
-            className={`glass-button ${gameMode === mode ? 'active' : ''}`}
-            onClick={() => changeMode(mode)}
-          >
-            {icon}
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
-
       {inLobby ? (
-        <Lobby
-          profile={profile}
-          roomCode={roomCode}
-          side={side}
-          opponent={opponent}
-          chatHistory={chatHistory}
-          onConnectWebSocket={onConnectWebSocket}
-          onSendChatMessage={onSendChatMessage}
-          onLeaveLobby={onLeaveLobby}
-          connectionError={connectionError}
-        />
+        <div className="lobby-page">
+          {renderModeTabs()}
+          <Lobby
+            profile={profile}
+            roomCode={roomCode}
+            side={side}
+            opponent={opponent}
+            chatHistory={chatHistory}
+            onConnectWebSocket={onConnectWebSocket}
+            onSendChatMessage={onSendChatMessage}
+            onLeaveLobby={onLeaveLobby}
+            connectionError={connectionError}
+          />
+        </div>
       ) : (
         renderMatchBoard()
       )}
     </div>
   );
 
+  function renderModeTabs() {
+    return (
+      <div className="segmented mode-tabs" role="tablist" aria-label={t('mode.label')}>
+        {([
+          ['ai', <Bot size={14} key="ai" />, t('mode.ai')],
+          ['local', <User size={14} key="local" />, t('mode.local')],
+          ['multiplayer', <Users size={14} key="mp" />, t('mode.online')],
+        ] as const).map(([mode, icon, label]) => (
+          <button key={mode} role="tab" aria-selected={gameMode === mode} onClick={() => changeMode(mode)}>
+            {icon}
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   // Names shown for each colour
   function playerLabels(): Record<PlayerType, PlayerLabel> {
-    const me = { name: profile.username, avatar: profile.avatar };
-    const them = { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || '🤖' };
+    const me = { name: profile.username, avatar: profile.avatar, detail: t('player.you') };
+    const them = { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || '🤖', detail: t('player.opponent') };
     if (gameMode === 'multiplayer') return side === 'red' ? { red: me, yellow: them } : { red: them, yellow: me };
-    if (gameMode === 'local') return { red: { name: t('player.red'), avatar: profile.avatar }, yellow: { name: t('player.blue'), avatar: '👤' } };
-    return { red: me, yellow: { name: `${t('player.ai')} · ${t(`settings.${difficulty}`)}`, avatar: '🧠' } };
+    if (gameMode === 'local') return { red: { name: t('player.red'), avatar: profile.avatar }, yellow: { name: t('player.yellow'), avatar: '👤' } };
+    return { red: me, yellow: { name: `${t('player.ai')} · ${t(`settings.${difficulty}`)}`, avatar: '🧠', detail: t('player.engine') } };
   }
 
   function statusText(): string {
     if (winner) {
-      if (gameMode === 'local') return winner === 'red' ? t('status.redWins') : t('status.blueWins');
+      if (gameMode === 'local') return winner === 'red' ? t('status.redWins') : t('status.yellowWins');
       if (gameMode === 'ai') return winner === 'red' ? t('status.youWin') : t('status.aiWins');
       return winner === side ? t('status.youWin') : t('status.opponentWins');
     }
     if (isDraw) return t('status.draw');
     if (gameMode === 'ai') return currentPlayer === 'red' ? t('status.yourTurn') : t('status.aiThinking');
-    if (gameMode === 'local') return currentPlayer === 'red' ? t('status.redTurn') : t('status.blueTurn');
+    if (gameMode === 'local') return currentPlayer === 'red' ? t('status.redTurn') : t('status.yellowTurn');
     return currentPlayer === side ? t('status.yourTurn') : t('status.opponentTurn');
   }
 
   function renderMatchBoard() {
     const players = playerLabels();
+    // Your colour sits at the bottom, like your pieces on a chess board
+    const bottom: PlayerType = gameMode === 'multiplayer' && side ? side : 'red';
+    const top: PlayerType = bottom === 'red' ? 'yellow' : 'red';
+    const playerCard = (color: PlayerType) => (
+      <PlayerCard
+        color={color}
+        player={players[color]}
+        active={!isGameOver && currentPlayer === color}
+        won={winner === color}
+        thinking={isAiThinking && color === 'yellow'}
+      />
+    );
 
     return (
-      <div className="match-layout">
-        <div className="board-column">
+      <div className="game-layout">
+        <aside className="game-setup">
+          {renderModeTabs()}
+
+          {gameMode === 'ai' && (
+            <AISettings
+              difficulty={difficulty}
+              aiFirst={aiFirst}
+              onDifficultyChange={(d) => { playClick(); setDifficulty(d); resetLocalGame(); }}
+              onFirstMoveChange={(value) => { playClick(); setAiFirst(value); resetLocalGame({ aiStarts: value }); }}
+            />
+          )}
+
+          {gameMode !== 'multiplayer' && (
+            <label className="panel toggle-row">
+              <span>
+                <strong>{t('eval.toggle')}</strong>
+                <small>{t('eval.toggleHint')}</small>
+              </span>
+              <input type="checkbox" role="switch" checked={showEval} onChange={(e) => toggleEval(e.target.checked)} />
+            </label>
+          )}
+
+          {gameMode === 'multiplayer' && roomCode && <RoomBar roomCode={roomCode} onLeave={onLeaveLobby} />}
+
+          {/* Chat stays available during an online game */}
+          {gameMode === 'multiplayer' && roomCode && (
+            <ChatPanel compact messages={chatHistory} ownName={profile.username} onSend={onSendChatMessage} />
+          )}
+
+          <p className="keyboard-hint">
+            <Keyboard size={13} />
+            <span>{t('controls.keyboard')}</span>
+          </p>
+        </aside>
+
+        <section className="board-area">
           <Board
             board={board}
             skin={profile.activeSkin}
@@ -414,62 +499,62 @@ export const GameArea: React.FC<GameAreaProps> = ({
             hintColumn={hintColumn}
             onHover={setHoveredCol}
             onColumnClick={handleColumnClick}
+            aside={evalVisible ? (
+              <EvalBar evaluation={evaluation} result={isGameOver ? { winner } : null} bottom={bottom} />
+            ) : undefined}
           />
 
-          {/* Controls: hint, undo, restart */}
           <div className="board-controls">
             <button
-              className="glass-button hint-button"
+              className="btn"
               onClick={handleGetHint}
               disabled={!canPlayNow}
               title={profile.isPro ? t('controls.hintTitlePro') : t('controls.hintTitle')}
             >
-              <Lightbulb size={15} />
+              <Lightbulb size={14} />
               <span>{profile.isPro ? t('controls.hint') : t('controls.hintCost')}</span>
             </button>
 
             {gameMode !== 'multiplayer' && (
-              <button className="glass-button" onClick={handleUndo} disabled={!canUndo} title={t('controls.undoTitle')}>
-                <Undo2 size={15} />
+              <button className="btn" onClick={handleUndo} disabled={!canUndo} title={t('controls.undoTitle')}>
+                <Undo2 size={14} />
                 <span>{t('controls.undo')}</span>
               </button>
             )}
 
-            <button className="glass-button" onClick={handleRestart}>
+            <button className="btn" onClick={handleRestart}>
               <RefreshCw size={14} />
               <span>{t('controls.restart')}</span>
             </button>
           </div>
+        </section>
 
-          <p className="keyboard-hint">
-            <Keyboard size={13} />
-            <span>{t('controls.keyboard')}</span>
-          </p>
-        </div>
+        <aside className="game-panel panel">
+          {playerCard(top)}
 
-        <div className="side-column">
-          {gameMode === 'multiplayer' && roomCode && <RoomBar roomCode={roomCode} onLeave={onLeaveLobby} />}
+          <div className={`game-status tone-${isDraw ? 'draw' : (winner ?? currentPlayer)}`} aria-live="polite">
+            <h2 className="status-title">{statusText()}</h2>
+          </div>
 
-          <StatusCard
-            text={statusText()}
-            tone={isDraw ? 'draw' : (winner ?? currentPlayer)}
-            isThinking={isAiThinking}
-            players={players}
-            activePlayer={isGameOver ? null : currentPlayer}
-            winner={winner}
-          />
+          <div className="game-moves">
+            <MoveList history={gameHistory} />
+          </div>
 
           {/* Post-game: AI Coach + play again */}
           {isGameOver && gameHistory.length > 0 && (
-            <section className="coach-cta glass-panel">
-              <Brain size={22} />
-              <h3 className="display-font">{t('coachPrompt.title')}</h3>
-              <p>{t('coachPrompt.body')}</p>
+            <section className="coach-cta">
+              <div className="coach-cta-text">
+                <Brain size={16} />
+                <div>
+                  <h3>{t('coachPrompt.title')}</h3>
+                  <p>{t('coachPrompt.body')}</p>
+                </div>
+              </div>
               <div className="coach-cta-actions">
-                <button className="glass-button active" onClick={handleOpenCoachPanel} disabled={isAnalyzing}>
+                <button className="btn primary" onClick={handleOpenCoachPanel} disabled={isAnalyzing}>
                   {isAnalyzing ? t('coachPrompt.analyzing') : t('coachPrompt.button')}
                 </button>
-                <button className="glass-button" onClick={handleRestart}>
+                <button className="btn" onClick={handleRestart}>
                   <RefreshCw size={14} />
                   {t('controls.restart')}
                 </button>
@@ -477,34 +562,20 @@ export const GameArea: React.FC<GameAreaProps> = ({
             </section>
           )}
 
-          {gameMode === 'ai' && (
-            <AISettings
-              difficulty={difficulty}
-              aiFirst={aiFirst}
-              onDifficultyChange={(d) => { playClick(); setDifficulty(d); resetLocalGame(); }}
-              onFirstMoveChange={(value) => { playClick(); setAiFirst(value); resetLocalGame({ aiStarts: value }); }}
-            />
-          )}
-
           {gameMode === 'multiplayer' && roomCode && opponentWantsRestart && (
-            <section className="glass-panel rematch-card">
+            <section className="rematch-card">
               <div>
                 <AlertTriangle size={14} />
                 <span>{t('mp.opponentRestart')}</span>
               </div>
-              <button className="glass-button active" onClick={() => { playClick(); onSendRestartConfirm(); }}>
+              <button className="btn primary" onClick={() => { playClick(); onSendRestartConfirm(); }}>
                 {t('mp.acceptRestart')}
               </button>
             </section>
           )}
 
-          {/* Chat stays available during an online game */}
-          {gameMode === 'multiplayer' && roomCode && (
-            <ChatPanel compact messages={chatHistory} ownName={profile.username} onSend={onSendChatMessage} />
-          )}
-
-          <MoveList history={gameHistory} playerName={(player) => players[player].name} />
-        </div>
+          {playerCard(bottom)}
+        </aside>
       </div>
     );
   }

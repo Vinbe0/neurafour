@@ -1,0 +1,368 @@
+/* AI Coach post-game review */
+
+.coach-page {
+  padding: 24px 20px 48px;
+}
+
+.coach-shell {
+  width: min(1240px, 100%);
+  margin: 0 auto;
+}
+
+.coach-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+}
+
+.coach-header > div {
+  flex: 1;
+}
+
+.coach-header h2 {
+  font-size: 20px;
+}
+
+.coach-header p {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.coach-kicker {
+  display: block;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.coach-grid {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+
+.coach-summary,
+.coach-main,
+.coach-board-card {
+  padding: 18px;
+}
+
+.accuracy-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.accuracy-card h3 {
+  font-size: 14px;
+}
+
+.accuracy-card p {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.accuracy-ring {
+  --accuracy: 0%;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--surface) 62%, transparent 63%),
+    conic-gradient(var(--accent) var(--accuracy), var(--surface-3) 0);
+}
+
+.accuracy-ring span {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.grade-list {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0;
+}
+
+.grade-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.grade-row:hover {
+  background: var(--surface-2);
+}
+
+.grade-row strong {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.grade-perfect, .grade-text.grade-perfect { color: var(--warning); }
+.grade-great, .grade-text.grade-great { color: var(--accent); }
+.grade-good, .grade-text.grade-good { color: var(--success); }
+.grade-mistake, .grade-text.grade-mistake { color: var(--orange); }
+.grade-blunder, .grade-text.grade-blunder { color: var(--danger); }
+
+.coach-upgrade {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--warning-soft);
+  font-size: 13px;
+}
+
+.coach-upgrade span {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.coach-upgrade button {
+  height: 30px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--warning);
+  color: var(--warning-contrast);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.turn-strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.turn-list {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 2px 0 6px;
+}
+
+.turn-arrow,
+.turn-pill {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.turn-arrow {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+}
+
+.turn-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.turn-pill {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 44px;
+  flex: 0 0 auto;
+  padding: 5px 6px;
+  font-size: 12px;
+}
+
+.turn-pill span {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.turn-pill.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.move-detail {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.move-title span,
+.move-comparison span {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.move-title h3 {
+  margin-top: 2px;
+  font-size: 22px;
+}
+
+.player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.player-chip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.player-chip.red::before { background: var(--red); }
+.player-chip.yellow::before { background: var(--yellow); }
+
+.coach-comment {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 currentColor;
+}
+
+.coach-comment p {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.move-comparison {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.move-comparison div {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.move-comparison strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.coach-board-card {
+  display: grid;
+  gap: 12px;
+}
+
+.coach-board-title h3 {
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.coach-board-title span {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.coach-board {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 8px;
+  border-radius: var(--radius);
+  background: var(--board);
+}
+
+.coach-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--hole);
+}
+
+.coach-slot.played {
+  box-shadow: 0 0 0 2px var(--warning);
+}
+
+.coach-slot.recommended {
+  box-shadow: 0 0 0 2px var(--success);
+}
+
+.coach-token {
+  display: grid;
+  place-items: center;
+  width: 86%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.coach-token.red { background: var(--red); color: #fff; }
+.coach-token.yellow { background: var(--yellow); }
+
+.coach-token.ghost {
+  opacity: 0.55;
+  outline: 1.5px dashed rgba(255, 255, 255, 0.85);
+  outline-offset: -3px;
+}
+
+.coach-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(480px, 100%);
+  margin: 40px auto;
+  padding: 28px;
+  text-align: center;
+}
+
+@media (max-width: 1080px) {
+  .coach-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .coach-header {
+    flex-wrap: wrap;
+  }
+
+  .move-detail {
+    display: grid;
+  }
+
+  .move-comparison {
+    grid-template-columns: 1fr;
+  }
+}

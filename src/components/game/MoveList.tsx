@@ -1,16 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { ListOrdered } from 'lucide-react';
 import type { HistoryStep } from '../../aiRequests';
-import type { PlayerType } from '../../types';
 import { useI18n } from '../../i18n';
 
 interface MoveListProps {
   history: HistoryStep[];
-  playerName: (player: PlayerType) => string;
 }
 
-// Every move of the current game, newest kept in view
-export const MoveList: React.FC<MoveListProps> = ({ history, playerName }) => {
+// Moves in numbered pairs, like a chess score sheet; the newest is highlighted and kept in view
+export const MoveList: React.FC<MoveListProps> = ({ history }) => {
   const { t } = useI18n();
   const listRef = useRef<HTMLOListElement | null>(null);
 
@@ -19,23 +16,34 @@ export const MoveList: React.FC<MoveListProps> = ({ history, playerName }) => {
     if (list) list.scrollTop = list.scrollHeight;
   }, [history.length]);
 
+  if (history.length === 0) {
+    return <p className="moves-empty">{t('moves.empty')}</p>;
+  }
+
+  const rows = Array.from({ length: Math.ceil(history.length / 2) }, (_, i) => history.slice(i * 2, i * 2 + 2));
+
   return (
-    <section className="glass-panel moves-card">
-      <span className="panel-label"><ListOrdered size={13} /> {t('moves.title')}</span>
-      {history.length === 0 ? (
-        <p className="moves-empty">{t('moves.empty')}</p>
-      ) : (
-        <ol className="move-list" ref={listRef}>
-          {history.map((step, i) => (
-            <li key={i} className={i === history.length - 1 ? 'latest' : ''}>
-              <span className="move-number">{i + 1}</span>
-              <span className={`player-chip-dot ${step.player}`} />
-              <span className="move-player">{playerName(step.player)}</span>
-              <span className="move-col">{t('moves.column', { col: step.column + 1 })}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </section>
+    // Focusable so keyboard users can scroll a long list
+    <ol className="move-list" ref={listRef} tabIndex={0} aria-label={t('moves.title')}>
+      {rows.map((pair, i) => (
+        <li key={i} className="move-row">
+          <span className="move-number">{i + 1}</span>
+          {pair.map((step, j) => {
+            const index = i * 2 + j;
+            return (
+              <span
+                key={index}
+                className={`move ${index === history.length - 1 ? 'latest' : ''}`}
+                data-player={step.player}
+                title={t('moves.column', { col: step.column + 1 })}
+              >
+                <span className={`move-disc ${step.player}`} aria-hidden="true" />
+                {step.column + 1}
+              </span>
+            );
+          })}
+        </li>
+      ))}
+    </ol>
   );
 };

@@ -15,7 +15,7 @@ interface AISettingsProps {
 export const AISettings: React.FC<AISettingsProps> = ({ difficulty, aiFirst, onDifficultyChange, onFirstMoveChange }) => {
   const { t } = useI18n();
   return (
-    <section className="glass-panel settings-card">
+    <section className="panel settings-card">
       <span className="panel-label">{t('settings.difficulty')}</span>
       <div className="segmented">
         {DIFFICULTIES.map((d) => (
