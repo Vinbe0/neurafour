@@ -20,12 +20,13 @@ export const MoveList: React.FC<MoveListProps> = ({ history, playerName }) => {
   }, [history.length]);
 
   return (
-    <section className="glass-panel moves-card">
+    <section className="panel moves-card">
       <span className="panel-label"><ListOrdered size={13} /> {t('moves.title')}</span>
       {history.length === 0 ? (
         <p className="moves-empty">{t('moves.empty')}</p>
       ) : (
-        <ol className="move-list" ref={listRef}>
+        // Focusable so keyboard users can scroll a long list
+        <ol className="move-list" ref={listRef} tabIndex={0} aria-label={t('moves.title')}>
           {history.map((step, i) => (
             <li key={i} className={i === history.length - 1 ? 'latest' : ''}>
               <span className="move-number">{i + 1}</span>

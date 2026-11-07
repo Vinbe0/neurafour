@@ -52,11 +52,11 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   if (!currentAnalysis) {
     return (
       <section className="coach-page">
-        <div className="coach-empty glass-panel">
+        <div className="coach-empty panel">
           <Brain size={34} />
           <h2>{t('coach.unavailable')}</h2>
           <p>{t('coach.unavailableBody')}</p>
-          <button className="glass-button active" onClick={onClose}>{t('coach.backToGame')}</button>
+          <button className="btn active" onClick={onClose}>{t('coach.backToGame')}</button>
         </div>
       </section>
     );
@@ -85,8 +85,8 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   return (
     <section className="coach-page">
       <div className="coach-shell">
-        <header className="coach-header glass-panel">
-          <button className="glass-button coach-back" onClick={() => { playClick(); onClose(); }}>
+        <header className="coach-header panel">
+          <button className="btn coach-back" onClick={() => { playClick(); onClose(); }}>
             <ArrowLeft size={16} />
             {t('coach.game')}
           </button>
@@ -96,7 +96,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
             <p>{t('coach.subtitle')}</p>
           </div>
           {!isPro && (
-            <button className="glass-button coach-pro" onClick={() => { playClick(); onOpenPro(); }}>
+            <button className="btn coach-pro" onClick={() => { playClick(); onOpenPro(); }}>
               <Crown size={16} />
               {t('coach.deeper')}
             </button>
@@ -104,7 +104,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
         </header>
 
         <div className="coach-grid">
-          <aside className="coach-summary glass-panel">
+          <aside className="coach-summary panel">
             <div className="accuracy-card">
               <div className="accuracy-ring" style={{ '--accuracy': `${summary.accuracy}%` } as React.CSSProperties}>
                 <span>{summary.accuracy}%</span>
@@ -133,7 +133,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
             )}
           </aside>
 
-          <main className="coach-main glass-panel">
+          <main className="coach-main panel">
             <div className="turn-strip">
               <button className="turn-arrow" onClick={goPrevious} disabled={selectedTurn <= 1} aria-label={t('coach.prev')}>
                 <ChevronLeft size={18} />
@@ -187,7 +187,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
             </div>
           </main>
 
-          <aside className="coach-board-card glass-panel">
+          <aside className="coach-board-card panel">
             <div className="coach-board-title">
               <h3>{t('coach.boardTitle')}</h3>
               <span><Info size={13} /> {t('coach.boardHint')}</span>

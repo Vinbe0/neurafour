@@ -66,7 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content auth-modal glass-panel">
+      <div className="modal-content auth-modal panel">
         <button className="modal-close" onClick={() => { playClick(); onClose(); }} aria-label={t('auth.close')}>
           <X size={20} />
         </button>
@@ -141,7 +141,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
           {status && <div className="auth-status">{status}</div>}
 
-          <button className="glass-button active auth-submit" type="submit" disabled={isSubmitting}>
+          <button className="btn active auth-submit" type="submit" disabled={isSubmitting}>
             {isSubmitting ? t('auth.processing') : mode === 'signin' ? t('auth.signIn') : t('auth.signUpTitle')}
           </button>
         </form>

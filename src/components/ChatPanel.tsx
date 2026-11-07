@@ -37,7 +37,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, ownName, onSend,
   };
 
   return (
-    <section className={`glass-panel chat-panel ${compact ? 'compact' : ''}`}>
+    <section className={`panel chat-panel ${compact ? 'compact' : ''}`}>
       <header className="chat-header">
         <MessageSquare size={compact ? 14 : 18} />
         <h4 className="display-font">{t('lobby.chat')}</h4>
@@ -65,7 +65,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, ownName, onSend,
       <form className="chat-form" onSubmit={handleSubmit}>
         <input
           type="text"
-          className="cyber-input"
+          className="input"
           placeholder={t('lobby.chatPlaceholder')}
           aria-label={t('lobby.chatPlaceholder')}
           value={text}
@@ -73,7 +73,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ messages, ownName, onSend,
           onChange={(e) => setText(e.target.value)}
           disabled={disabled}
         />
-        <button type="submit" className="glass-button active" disabled={disabled} aria-label={t('lobby.send')}>
+        <button type="submit" className="btn active" disabled={disabled} aria-label={t('lobby.send')}>
           <Send size={16} />
         </button>
       </form>

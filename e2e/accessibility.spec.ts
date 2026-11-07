@@ -16,6 +16,9 @@ const expectNoViolations = async (page: Page, label: string) => {
   expect(summary, `${label}: accessibility violations`).toEqual([]);
 };
 
+// Without motion, colours are checked in their final state rather than mid-transition
+test.use({ reducedMotion: 'reduce' });
+
 test.beforeEach(async ({ context }) => {
   await preparePlayer(context, 'Tester');
 });

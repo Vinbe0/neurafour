@@ -337,7 +337,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
       <canvas ref={canvasRef} className="confetti-canvas" />
 
       {/* Mode Switches */}
-      <div className="mode-switch glass-panel" role="tablist">
+      <div className="mode-switch panel" role="tablist">
         {([
           ['ai', <Bot size={15} key="ai" />, t('mode.ai')],
           ['local', <User size={15} key="local" />, t('mode.local')],
@@ -347,7 +347,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
             key={mode}
             role="tab"
             aria-selected={gameMode === mode}
-            className={`glass-button ${gameMode === mode ? 'active' : ''}`}
+            className={`btn ${gameMode === mode ? 'active' : ''}`}
             onClick={() => changeMode(mode)}
           >
             {icon}
@@ -419,7 +419,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
           {/* Controls: hint, undo, restart */}
           <div className="board-controls">
             <button
-              className="glass-button hint-button"
+              className="btn hint-button"
               onClick={handleGetHint}
               disabled={!canPlayNow}
               title={profile.isPro ? t('controls.hintTitlePro') : t('controls.hintTitle')}
@@ -429,13 +429,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
             </button>
 
             {gameMode !== 'multiplayer' && (
-              <button className="glass-button" onClick={handleUndo} disabled={!canUndo} title={t('controls.undoTitle')}>
+              <button className="btn" onClick={handleUndo} disabled={!canUndo} title={t('controls.undoTitle')}>
                 <Undo2 size={15} />
                 <span>{t('controls.undo')}</span>
               </button>
             )}
 
-            <button className="glass-button" onClick={handleRestart}>
+            <button className="btn" onClick={handleRestart}>
               <RefreshCw size={14} />
               <span>{t('controls.restart')}</span>
             </button>
@@ -461,15 +461,15 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
           {/* Post-game: AI Coach + play again */}
           {isGameOver && gameHistory.length > 0 && (
-            <section className="coach-cta glass-panel">
+            <section className="coach-cta panel">
               <Brain size={22} />
               <h3 className="display-font">{t('coachPrompt.title')}</h3>
               <p>{t('coachPrompt.body')}</p>
               <div className="coach-cta-actions">
-                <button className="glass-button active" onClick={handleOpenCoachPanel} disabled={isAnalyzing}>
+                <button className="btn active" onClick={handleOpenCoachPanel} disabled={isAnalyzing}>
                   {isAnalyzing ? t('coachPrompt.analyzing') : t('coachPrompt.button')}
                 </button>
-                <button className="glass-button" onClick={handleRestart}>
+                <button className="btn" onClick={handleRestart}>
                   <RefreshCw size={14} />
                   {t('controls.restart')}
                 </button>
@@ -487,12 +487,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
           )}
 
           {gameMode === 'multiplayer' && roomCode && opponentWantsRestart && (
-            <section className="glass-panel rematch-card">
+            <section className="panel rematch-card">
               <div>
                 <AlertTriangle size={14} />
                 <span>{t('mp.opponentRestart')}</span>
               </div>
-              <button className="glass-button active" onClick={() => { playClick(); onSendRestartConfirm(); }}>
+              <button className="btn active" onClick={() => { playClick(); onSendRestartConfirm(); }}>
                 {t('mp.acceptRestart')}
               </button>
             </section>

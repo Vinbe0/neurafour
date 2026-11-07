@@ -21,7 +21,7 @@ interface StatusCardProps {
 export const StatusCard: React.FC<StatusCardProps> = ({ text, tone, isThinking, players, activePlayer, winner }) => {
   const { t } = useI18n();
   return (
-    <section className={`status-card glass-panel tone-${tone}`} aria-live="polite">
+    <section className={`status-card panel tone-${tone}`} aria-live="polite">
       <span className="panel-label">{t('status.label')}</span>
       <h2 className="status-title display-font">
         {text}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, Coins, Crown, LogIn, Volume2, VolumeX, Sun, Moon, Trophy, ShoppingBag, Gamepad2, Languages } from 'lucide-react';
+import { Coins, Crown, LogIn, Volume2, VolumeX, Sun, Moon } from 'lucide-react';
 import type { UserProfile } from '../types';
 import { playClick } from '../sound';
 import { useI18n } from '../i18n';
@@ -20,6 +20,18 @@ interface HeaderProps {
   accountEmail: string | null;
 }
 
+// Logo: a winning diagonal of four discs on the board
+const LogoMark = () => (
+  <svg className="logo-mark" viewBox="0 0 28 28" aria-hidden="true">
+    <rect width="28" height="28" rx="7" />
+    <circle cx="6" cy="22" r="2.7" />
+    <circle cx="11.3" cy="16.7" r="2.7" />
+    <circle cx="16.7" cy="11.3" r="2.7" />
+    <circle cx="22" cy="6" r="2.7" />
+  </svg>
+);
+
+// Slim top bar: brand and navigation on the left, account and settings on the right
 export const Header: React.FC<HeaderProps> = ({
   profile,
   activeTab,
@@ -44,8 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const toggleTheme = () => {
     playClick();
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
   const toggleLang = () => {
@@ -53,138 +64,100 @@ export const Header: React.FC<HeaderProps> = ({
     setLang(lang === 'en' ? 'ru' : 'en');
   };
 
-  const handleTabClick = (tab: string) => {
+  const goToGame = () => {
     playClick();
-    setActiveTab(tab);
+    setActiveTab('game');
   };
 
   return (
-    <header className="app-header glass-panel">
-      {/* Brand Logo */}
-      <button className="header-brand" onClick={() => handleTabClick('game')} title={t('header.openGame')}>
-        <Brain className="brand-icon" size={32} />
-        <div>
-          <h1 className="display-font">
-            NEURAFOUR
-          </h1>
-          <span>
-            {t('header.tagline')}
+    <header className="app-header">
+      <div className="header-inner">
+        <button className="header-brand" onClick={goToGame} title={t('header.openGame')}>
+          <LogoMark />
+          <span>NeuraFour</span>
+        </button>
+
+        <nav className="header-nav">
+          <button className="nav-link" aria-current={activeTab === 'game' ? 'page' : undefined} onClick={goToGame}>
+            {t('nav.play')}
+          </button>
+          <button className="nav-link" onClick={onOpenLeaderboard}>
+            {t('nav.leaderboard')}
+          </button>
+          <button className="nav-link" onClick={onOpenShop}>
+            {t('nav.shop')}
+          </button>
+        </nav>
+
+        <div className="header-actions">
+          <span className="header-points" title="CyberPoints">
+            <Coins size={14} />
+            <strong>{profile.points}</strong>
+            <span>CP</span>
           </span>
-        </div>
-      </button>
 
-      {/* Main Navigation Tabs */}
-      <nav className="header-nav">
-        <button
-          className={`glass-button ${activeTab === 'game' ? 'active' : ''}`}
-          onClick={() => handleTabClick('game')}
-        >
-          <Gamepad2 size={14} />
-          <span className="display-font">{t('nav.play')}</span>
-        </button>
-        <button
-          className="glass-button"
-          onClick={onOpenLeaderboard}
-        >
-          <Trophy size={14} className="neon-text-cyan" />
-          <span className="display-font">{t('nav.leaderboard')}</span>
-        </button>
-        <button
-          className="glass-button"
-          onClick={onOpenShop}
-        >
-          <ShoppingBag size={14} className="neon-text-pink" />
-          <span className="display-font">{t('nav.shop')}</span>
-        </button>
-      </nav>
+          {profile.isPro ? (
+            <button className="badge pro header-pro-badge" onClick={onOpenPro}>
+              <Crown size={11} />
+              PRO
+            </button>
+          ) : (
+            <button className="btn small header-upgrade" onClick={onOpenPro}>
+              <Crown size={13} />
+              <span>{t('header.upgrade')}</span>
+            </button>
+          )}
 
-      {/* Profile & Controls */}
-      <div className="header-actions">
-        
-        {/* Currency tracker */}
-        <div className="header-points glass-panel">
-          <Coins size={16} className="neon-text-cyan" />
-          <span className="display-font">
-            {profile.points} <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CP</span>
-          </span>
-        </div>
+          <div className="header-toggles">
+            <button
+              className="btn ghost icon-button"
+              onClick={toggleMuted}
+              title={isMuted ? t('header.unmute') : t('header.mute')}
+              aria-label={isMuted ? t('header.unmute') : t('header.mute')}
+            >
+              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
 
-        {/* Pro Banner / Upgrader */}
-        {profile.isPro ? (
-          <button className="header-pro-badge cyber-badge pro" onClick={onOpenPro}>
-            <Crown size={14} />
-            <span>PRO</span>
-          </button>
-        ) : (
-          <button 
-            className="glass-button pink header-upgrade"
-            onClick={onOpenPro}
-          >
-            <Crown size={12} className="neon-text-pink" />
-            <span>{t('header.upgrade')}</span>
-          </button>
-        )}
+            <button
+              className="btn ghost icon-button"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? t('header.lightTheme') : t('header.darkTheme')}
+              aria-label={theme === 'dark' ? t('header.lightTheme') : t('header.darkTheme')}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
 
-        {/* Action Toggles */}
-        <div className="header-toggles">
-          {/* Audio toggle */}
-          <button 
-            className="glass-button icon-button" 
-            onClick={toggleMuted}
-            title={isMuted ? t('header.unmute') : t('header.mute')}
-            aria-label={isMuted ? t('header.unmute') : t('header.mute')}
-          >
-            {isMuted ? <VolumeX size={16} className="neon-text-pink" /> : <Volume2 size={16} className="neon-text-cyan" />}
-          </button>
-
-          {/* Theme toggle */}
-          <button 
-            className="glass-button icon-button" 
-            onClick={toggleTheme}
-            title={theme === 'dark' ? t('header.lightTheme') : t('header.darkTheme')}
-            aria-label={theme === 'dark' ? t('header.lightTheme') : t('header.darkTheme')}
-          >
-            {theme === 'dark' ? <Sun size={16} className="neon-text-cyan" /> : <Moon size={16} className="neon-text-pink" />}
-          </button>
-
-          {/* Language toggle */}
-          <button
-            className="glass-button lang-button"
-            onClick={toggleLang}
-            title={t('header.language')}
-            // The accessible name includes the visible "RU"/"EN" so voice control can find it
-            aria-label={`${t('header.language')}: ${lang === 'en' ? 'RU' : 'EN'}`}
-          >
-            <Languages size={14} />
-            <span>{lang === 'en' ? 'RU' : 'EN'}</span>
-          </button>
-        </div>
-
-        {!accountEmail && (
-          <button
-            className="glass-button auth-nav-button"
-            onClick={() => { playClick(); onOpenAuth(); }}
-            title={t('header.signInTitle')}
-          >
-            <LogIn size={14} />
-            <span>{t('header.signIn')}</span>
-          </button>
-        )}
-
-        {/* Profile indicator */}
-        <button 
-          onClick={onOpenProfile}
-          className="header-profile tooltip"
-          data-tooltip={accountEmail ? accountEmail : t('header.guest')}
-        >
-          <div className={profile.isPro ? 'profile-avatar pro' : 'profile-avatar'}>
-            {profile.avatar}
+            <button
+              className="btn ghost lang-button"
+              onClick={toggleLang}
+              title={t('header.language')}
+              // The accessible name includes the visible "RU"/"EN" so voice control can find it
+              aria-label={`${t('header.language')}: ${lang === 'en' ? 'RU' : 'EN'}`}
+            >
+              {lang === 'en' ? 'RU' : 'EN'}
+            </button>
           </div>
-          <span>
-            {profile.username}
-          </span>
-        </button>
 
+          {!accountEmail && (
+            <button
+              className="btn small"
+              onClick={() => { playClick(); onOpenAuth(); }}
+              title={t('header.signInTitle')}
+            >
+              <LogIn size={13} />
+              <span>{t('header.signIn')}</span>
+            </button>
+          )}
+
+          <button
+            onClick={onOpenProfile}
+            className="header-profile tooltip"
+            data-tooltip={accountEmail ? accountEmail : t('header.guest')}
+          >
+            <span className={profile.isPro ? 'profile-avatar pro' : 'profile-avatar'}>{profile.avatar}</span>
+            <span className="profile-name">{profile.username}</span>
+          </button>
+        </div>
       </div>
     </header>
   );

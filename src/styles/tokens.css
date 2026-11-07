@@ -1,0 +1,111 @@
+/* Design tokens. Components use these names only, so a theme is just a set of values.
+   Dark is the default; [data-theme='light'] overrides it. */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, from the page background up to raised controls */
+  --bg: #0a0b0d;
+  --bg-elevated: rgba(13, 14, 17, 0.82);
+  --surface: #131418;
+  --surface-2: #1a1b20;
+  --surface-3: #23242a;
+  --overlay: rgba(4, 5, 7, 0.72);
+
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+
+  --text: #ececef;
+  --text-2: #a1a1ab;
+  --text-3: #85858f;
+
+  /* One accent for primary actions, selection and focus */
+  --accent: #7c83ff;
+  --accent-strong: #6971f2;
+  /* Filled buttons: darker than --accent so white text keeps 4.5:1 contrast */
+  --accent-fill: #5a62e3;
+  --accent-fill-hover: #4f57d8;
+  --accent-soft: rgba(124, 131, 255, 0.14);
+  --accent-contrast: #ffffff;
+
+  --success: #46c06a;
+  --success-soft: rgba(70, 192, 106, 0.13);
+  --warning: #e5b544;
+  --warning-soft: rgba(229, 181, 68, 0.13);
+  --warning-contrast: #1a1407;
+  --orange: #e8913f;
+  --danger: #f06c6c;
+  --danger-soft: rgba(240, 108, 108, 0.13);
+
+  /* Game pieces and board (shared by both themes) */
+  --red: #e5484d;
+  --red-light: #f47a7e;
+  --red-dark: #b4282e;
+  --yellow: #f2c037;
+  --yellow-light: #ffd970;
+  --yellow-dark: #c2900f;
+  --board: #23407a;
+  --board-edge: #1b3466;
+  --hole: #0c1424;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Older names still used by a few components */
+  --text-primary: var(--text);
+  --text-secondary: var(--text-2);
+  --panel-border: var(--border);
+  --accent-cyan: var(--accent);
+  --accent-purple: var(--accent);
+  --accent-pink: var(--danger);
+  --accent-gold: var(--warning);
+  --accent-green: var(--success);
+  --glow-pink: none;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f6f6f7;
+  --bg-elevated: rgba(255, 255, 255, 0.85);
+  --surface: #ffffff;
+  --surface-2: #f1f1f3;
+  --surface-3: #e7e7ea;
+  --overlay: rgba(20, 20, 26, 0.38);
+
+  --border: rgba(16, 16, 22, 0.08);
+  --border-strong: rgba(16, 16, 22, 0.15);
+
+  --text: #18181b;
+  --text-2: #5d5d67;
+  --text-3: #6b6b75;
+
+  --accent: #5b5fe0;
+  --accent-strong: #4b4fd0;
+  --accent-fill: #5b5fe0;
+  --accent-fill-hover: #4b4fd0;
+  --accent-soft: rgba(91, 95, 224, 0.1);
+
+  --success: #1f7a3e;
+  --success-soft: rgba(47, 158, 85, 0.1);
+  --warning: #8a6508;
+  --warning-soft: rgba(184, 134, 11, 0.1);
+  --warning-contrast: #ffffff;
+  --orange: #a8520c;
+  --danger: #c43333;
+  --danger-soft: rgba(214, 69, 69, 0.1);
+
+  --hole: #e9edf5;
+
+  --shadow-sm: 0 1px 2px rgba(16, 16, 22, 0.06);
+  --shadow: 0 6px 20px rgba(16, 16, 22, 0.08);
+  --shadow-lg: 0 24px 60px rgba(16, 16, 22, 0.16);
+}

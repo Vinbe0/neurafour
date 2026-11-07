@@ -42,7 +42,7 @@ export const ProModal: React.FC<ProModalProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content pro-modal glass-panel">
+      <div className="modal-content pro-modal panel">
         <button className="modal-close" onClick={() => { playClick(); onClose(); }} aria-label={t('auth.close')}>
           <X size={20} />
         </button>
@@ -61,7 +61,7 @@ export const ProModal: React.FC<ProModalProps> = ({
               <li><Check size={18} /> {t('pro.perkCrown')}</li>
             </ul>
 
-            <button className="glass-button active pro-cta" onClick={() => { playClick(); onClose(); }}>
+            <button className="btn active pro-cta" onClick={() => { playClick(); onClose(); }}>
               {t('pro.continue')}
             </button>
           </div>
@@ -96,7 +96,7 @@ export const ProModal: React.FC<ProModalProps> = ({
             </div>
 
             <button
-              className="glass-button active pro-cta"
+              className="btn active pro-cta"
               onClick={handleActivate}
               disabled={isProcessing}
             >
