@@ -11,7 +11,8 @@ test('the AI answers a move and undo takes both back', async ({ page }) => {
 
   await dropInColumn(page, 4);
   await expect(moveList(page)).toHaveCount(2);
-  await expect(moveList(page).nth(1)).toContainText('AI · Medium');
+  await expect(moveList(page).nth(1)).toHaveAttribute('data-player', 'yellow');
+  await expect(page.locator('.player-card.yellow')).toContainText('AI · Medium');
   await expect(page.locator('.status-title')).toHaveText('Your turn');
 
   await page.getByRole('button', { name: 'Undo' }).click();

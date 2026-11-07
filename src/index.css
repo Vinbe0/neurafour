@@ -5,7 +5,7 @@
 @import './styles/base.css';
 @import './styles/controls.css';
 @import './styles/layout.css';
-@import './styles/legacy-game.css';
+@import './styles/game.css';
 @import './styles/social.css';
 @import './styles/dialogs.css';
 @import './styles/coach.css';

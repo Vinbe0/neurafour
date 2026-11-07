@@ -30,7 +30,7 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   onClose,
 }) => {
   const { t, lang } = useI18n();
-  const getPlayerLabel = (player: PlayerType) => (player === 'red' ? t('player.red') : t('player.blue'));
+  const getPlayerLabel = (player: PlayerType) => (player === 'red' ? t('player.red') : t('player.yellow'));
   const [selectedTurn, setSelectedTurn] = useState(analyses[0]?.turn ?? 1);
 
   const currentAnalysis = analyses.find((a) => a.turn === selectedTurn) ?? analyses[0];
