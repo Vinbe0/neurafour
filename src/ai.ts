@@ -92,8 +92,16 @@ export interface Evaluation {
   movesToWin: number | null;
 }
 
-export const evaluatePosition = (board: BoardType, toMove: PlayerType, timeMs = 150): Evaluation => {
-  const result = search(board, toMove, { maxDepth: ROWS * COLS, timeMs, symmetric: true });
+// By default the search stops after 150 ms; tests pass a fixed depth instead so the
+// result does not depend on how fast the machine is
+export const evaluatePosition = (
+  board: BoardType,
+  toMove: PlayerType,
+  { timeMs = 150, maxDepth }: { timeMs?: number; maxDepth?: number } = {},
+): Evaluation => {
+  const result = search(board, toMove, maxDepth !== undefined
+    ? { maxDepth, symmetric: true }
+    : { maxDepth: ROWS * COLS, timeMs, symmetric: true });
   const score = toMove === 'red' ? result.score : -result.score;
   if (Math.abs(result.score) <= WIN_THRESHOLD) return { score, winner: null, movesToWin: null };
   // A win found at ply p scores WIN_SCORE - p; the winner moves on every other ply
