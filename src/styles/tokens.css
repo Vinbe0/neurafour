@@ -58,6 +58,7 @@
   --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* Older names still used by a few components */
   --text-primary: var(--text);
