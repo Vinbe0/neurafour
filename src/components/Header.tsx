@@ -3,6 +3,7 @@ import { Coins, Crown, LogIn, Volume2, VolumeX, Sun, Moon } from 'lucide-react';
 import type { UserProfile } from '../types';
 import { playClick } from '../sound';
 import { useI18n } from '../i18n';
+import { Avatar } from './Avatar';
 
 interface HeaderProps {
   profile: UserProfile;
@@ -69,10 +70,15 @@ export const Header: React.FC<HeaderProps> = ({
     setActiveTab('game');
   };
 
+  const goHome = () => {
+    playClick();
+    setActiveTab('home');
+  };
+
   return (
     <header className="app-header">
       <div className="header-inner">
-        <button className="header-brand" onClick={goToGame} title={t('header.openGame')}>
+        <button className="header-brand" onClick={goHome} title={t('nav.home')}>
           <LogoMark />
           <span>NeuraFour</span>
         </button>
@@ -154,7 +160,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="header-profile tooltip"
             data-tooltip={accountEmail ? accountEmail : t('header.guest')}
           >
-            <span className={profile.isPro ? 'profile-avatar pro' : 'profile-avatar'}>{profile.avatar}</span>
+            <span className={profile.isPro ? 'profile-avatar pro' : 'profile-avatar'}><Avatar value={profile.avatar} size={14} /></span>
             <span className="profile-name">{profile.username}</span>
           </button>
         </div>

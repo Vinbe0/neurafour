@@ -201,7 +201,7 @@ export const createGameServer = ({
             players: [{
               ws,
               username: cleanText(data.username, MAX_NAME, 'Player'),
-              avatar: cleanText(data.avatar, MAX_AVATAR, '🤖'),
+              avatar: cleanText(data.avatar, MAX_AVATAR, 'bot'),
               side: 'red',
               token,
               connected: true,
@@ -236,7 +236,7 @@ export const createGameServer = ({
           }
 
           const username = cleanText(data.username, MAX_NAME, 'Player');
-          const avatar = cleanText(data.avatar, MAX_AVATAR, '🤖');
+          const avatar = cleanText(data.avatar, MAX_AVATAR, 'bot');
           const token = randomUUID();
           room = target;
           side = 'yellow';
@@ -334,7 +334,7 @@ export const createGameServer = ({
           const message: ChatMessage = {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             username: sender?.username ?? 'Player',
-            avatar: sender?.avatar ?? '🤖',
+            avatar: sender?.avatar ?? 'bot',
             text,
             sentAt: Date.now(),
           };

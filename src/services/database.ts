@@ -1,5 +1,6 @@
 import type { LeaderboardItem, MatchHistoryItem, UserProfile } from '../types';
 import { getSupabase } from '../utils/supabase';
+import { normalizeAvatar } from '../avatars';
 
 const PLAYER_ID_KEY = 'neurafour_player_id_v1';
 
@@ -30,7 +31,7 @@ export const getPlayerId = (authenticatedUserId?: string) => {
 export const mapRemoteProfile = (row: RemoteProfileRow): UserProfile => ({
   username: row.username,
   city: row.city,
-  avatar: row.avatar,
+  avatar: normalizeAvatar(row.avatar),
   points: row.points,
   isPro: row.is_pro,
   unlockedSkins: row.is_pro
@@ -140,7 +141,7 @@ export const fetchLeaderboardFromSupabase = async (): Promise<LeaderboardItem[]>
   return (data ?? []).map((row) => ({
     username: row.username,
     city: row.city,
-    avatar: row.avatar,
+    avatar: normalizeAvatar(row.avatar),
     points: row.points,
     isPro: row.is_pro,
   }));

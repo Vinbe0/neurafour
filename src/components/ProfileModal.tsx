@@ -3,6 +3,8 @@ import { CheckCircle, Coins, Flame, History, LogIn, LogOut, MapPin, Save, Shield
 import type { UserProfile, MatchHistoryItem } from '../types';
 import { playClick } from '../sound';
 import { useI18n } from '../i18n';
+import { PICKABLE_AVATARS, normalizeAvatar } from '../avatars';
+import { Avatar } from './Avatar';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -15,7 +17,6 @@ interface ProfileModalProps {
   onSignOut: () => void;
 }
 
-const AVATARS = ['🤖', '🧠', '⚡', '🧬', '👾', '🚀', '🛸', '👑', '🛡️', '🎯'];
 const CITIES = ['Almaty (Алматы)', 'Astana (Астана)', 'Moscow (Москва)', 'London', 'San Francisco', 'Tokyo'];
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -31,7 +32,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const { t } = useI18n();
   const [username, setUsername] = useState(profile.username);
   const [city, setCity] = useState(profile.city);
-  const [avatar, setAvatar] = useState(profile.avatar);
+  const [avatar, setAvatar] = useState(normalizeAvatar(profile.avatar));
 
   if (!isOpen) return null;
 
@@ -60,7 +61,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         </button>
 
         <section className="account-hero">
-          <div className="account-avatar-preview">{avatar}</div>
+          <div className="account-avatar-preview"><Avatar value={avatar} size={28} /></div>
           <div className="account-identity">
             <span className="account-kicker">{t('profile.kicker')}</span>
             <h2>{username || profile.username}</h2>
@@ -142,7 +143,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
             <span className="field-label" id="profile-avatar-label">{t('profile.avatar')}</span>
             <div className="avatar-grid" role="group" aria-labelledby="profile-avatar-label">
-              {AVATARS.map((av) => (
+              {PICKABLE_AVATARS.map((av) => (
                 <button
                   key={av}
                   className={avatar === av ? 'selected' : ''}
@@ -150,7 +151,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   aria-label={`${t('profile.avatar')} ${av}`}
                   aria-pressed={avatar === av}
                 >
-                  {av}
+                  <Avatar value={av} size={18} />
                 </button>
               ))}
             </div>

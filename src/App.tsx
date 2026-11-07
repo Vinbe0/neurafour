@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Header } from './components/Header';
 import { GameArea } from './components/GameArea';
 import { useMultiplayer } from './hooks/useMultiplayer';
-import type { UserProfile, MatchHistoryItem, MoveAnalysis } from './types';
+import type { UserProfile, MatchHistoryItem, MoveAnalysis, StartPreset } from './types';
+import { HomePage } from './components/home/HomePage';
 import { playClick, setMuted } from './sound';
 import {
   activateProOnSupabase,
@@ -17,6 +18,7 @@ import { getSupabase, hasStoredSession, whenSupabaseLoads } from './utils/supaba
 import type { Session } from '@supabase/supabase-js';
 import { CodeXml } from 'lucide-react';
 import { useI18n } from './i18n';
+import { DEFAULT_AVATAR, normalizeAvatar } from './avatars';
 
 const STORAGE_PROFILE_KEY = 'neurafour_user_profile_v2';
 const STORAGE_HISTORY_KEY = 'neurafour_match_history_v2';
@@ -45,12 +47,19 @@ const loadTheme = (): 'dark' | 'light' => {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 };
 
+// Pages live in the URL hash (#/ and #/play) so links and the back button work on
+// GitHub Pages. Invite links (?room=CODE) always open the game.
+type Route = 'home' | 'play';
+
+const readRoute = (): Route =>
+  window.location.hash.startsWith('#/play') || new URLSearchParams(window.location.search).has('room') ? 'play' : 'home';
+
 const ALL_SKINS = ['cyber-neon', 'retro-arcade', 'space-obsidian', 'royal-gold'];
 
 const DEFAULT_PROFILE: UserProfile = {
   username: 'NetRunner_1',
   city: 'Almaty (Алматы)',
-  avatar: '🤖',
+  avatar: DEFAULT_AVATAR,
   points: 150, // Starting point balance to let them explore the shop
   isPro: false,
   unlockedSkins: ['cyber-neon'],
@@ -71,7 +80,9 @@ function App() {
   const [matchHistory, setMatchHistory] = useState<MatchHistoryItem[]>([]);
 
   // Page navigation & active view states
-  const [activeTab, setActiveTab] = useState('game');
+  const [route, setRoute] = useState<Route>(readRoute);
+  // Set by a quick-start tile; GameArea applies it (the nonce makes repeat clicks count)
+  const [startRequest, setStartRequest] = useState<(StartPreset & { nonce: number }) | null>(null);
   const [coachAnalyses, setCoachAnalyses] = useState<MoveAnalysis[] | null>(null);
 
   // Modals visibility toggles
@@ -88,13 +99,39 @@ function App() {
 
   const multiplayer = useMultiplayer(profile);
 
+  useEffect(() => {
+    const onHashChange = () => setRoute(readRoute());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const navigate = (next: Route) => {
+    setCoachAnalyses(null);
+    const hash = next === 'play' ? '#/play' : '#/';
+    if (window.location.hash !== hash) window.location.hash = hash;
+    setRoute(next);
+    window.scrollTo({ top: 0 });
+  };
+
+  const startGame = (preset: StartPreset) => {
+    setStartRequest({ ...preset, nonce: Date.now() });
+    navigate('play');
+  };
+
+  // Rejoining an online game after a reload takes you straight back to the board
+  useEffect(() => {
+    if (multiplayer.restoredMoves) navigate('play');
+  }, [multiplayer.restoredMoves]);
+
 
   // Load profile progress from LocalStorage on launch
   useEffect(() => {
     try {
       const storedProfile = localStorage.getItem(STORAGE_PROFILE_KEY);
       if (storedProfile) {
-        setProfile(JSON.parse(storedProfile));
+        const saved = JSON.parse(storedProfile) as UserProfile;
+        // Older profiles stored an emoji avatar
+        setProfile({ ...saved, avatar: normalizeAvatar(saved.avatar) });
       }
       
       const storedHistory = localStorage.getItem(STORAGE_HISTORY_KEY);
@@ -251,11 +288,8 @@ function App() {
       {/* Premium dashboard navigation */}
       <Header
         profile={profile}
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setActiveTab(tab);
-          setCoachAnalyses(null); // Clear coach reviewing view when changing tabs
-        }}
+        activeTab={route === 'home' ? 'home' : 'game'}
+        setActiveTab={(tab) => navigate(tab === 'home' ? 'home' : 'play')}
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenPro={() => setIsProOpen(true)}
         onOpenShop={() => setIsShopOpen(true)}
@@ -270,7 +304,10 @@ function App() {
 
       {/* Main content body routing */}
       <main style={{ flex: 1 }}>
-        {/* The game stays mounted (just hidden) during the review, so the finished board is still there afterwards */}
+        {route === 'home' && !coachAnalyses && <HomePage onStart={startGame} />}
+
+        {/* The game stays mounted (just hidden) on the home page and during the review,
+            so a game in progress is still there afterwards */}
         {coachAnalyses && (
           <Suspense fallback={null}>
             <CoachPanel
@@ -284,9 +321,10 @@ function App() {
             />
           </Suspense>
         )}
-        <div hidden={!!coachAnalyses}>
+        <div hidden={!!coachAnalyses || route === 'home'}>
           <GameArea
-            isActive={!coachAnalyses}
+            isActive={!coachAnalyses && route === 'play'}
+            startRequest={startRequest}
             profile={profile}
             onUpdateProfile={handleUpdateProfile}
             onSpendPoints={handleSpendPoints}

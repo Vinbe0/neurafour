@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Users, User, RefreshCw, AlertTriangle, Lightbulb, Brain, Undo2, Keyboard } from 'lucide-react';
-import type { RoomMove, PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
+import type { StartPreset, RoomMove, PlayerType, AIDifficulty, GameMode, UserProfile, MatchHistoryItem, MoveAnalysis, ChatMessage } from '../types';
 import { isColumnAvailable } from '../rules';
 import { isGameOver as isGameOverState, newGame, playMove, undo, undoTarget } from '../game';
 import type { GameState } from '../game';
@@ -47,6 +47,8 @@ interface GameAreaProps {
   connectionError: string | null;
   // Set after a page reload: the online game so far, to rebuild the board from
   restoredMoves: RoomMove[] | null;
+  // From a home page quick-start tile: switch mode (and difficulty) and start a new game
+  startRequest: (StartPreset & { nonce: number }) | null;
 }
 
 const STORAGE_EVAL_KEY = 'neurafour_eval_bar';
@@ -84,6 +86,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
   opponentWantsRestart,
   connectionError,
   restoredMoves,
+  startRequest,
 }) => {
   const { t } = useI18n();
   const notify = useToast();
@@ -161,6 +164,14 @@ export const GameArea: React.FC<GameAreaProps> = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPlayer, gameMode, winner, isDraw, gameId]);
+
+  useEffect(() => {
+    if (!startRequest) return;
+    setGameMode(startRequest.mode);
+    if (startRequest.difficulty) setDifficulty(startRequest.difficulty);
+    resetLocalGame({ mode: startRequest.mode });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startRequest]);
 
   // Rejoined an online game after a reload: switch to online mode and replay its moves
   useEffect(() => {
@@ -415,10 +426,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
   // Names shown for each colour
   function playerLabels(): Record<PlayerType, PlayerLabel> {
     const me = { name: profile.username, avatar: profile.avatar, detail: t('player.you') };
-    const them = { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || '🤖', detail: t('player.opponent') };
+    const them = { name: opponent?.username || t('player.opponent'), avatar: opponent?.avatar || 'bot', detail: t('player.opponent') };
     if (gameMode === 'multiplayer') return side === 'red' ? { red: me, yellow: them } : { red: them, yellow: me };
-    if (gameMode === 'local') return { red: { name: t('player.red'), avatar: profile.avatar }, yellow: { name: t('player.yellow'), avatar: '👤' } };
-    return { red: me, yellow: { name: `${t('player.ai')} · ${t(`settings.${difficulty}`)}`, avatar: '🧠', detail: t('player.engine') } };
+    if (gameMode === 'local') return { red: { name: t('player.red'), avatar: profile.avatar }, yellow: { name: t('player.yellow'), avatar: 'user' } };
+    return { red: me, yellow: { name: `${t('player.ai')} · ${t(`settings.${difficulty}`)}`, avatar: 'cpu', detail: t('player.engine') } };
   }
 
   function statusText(): string {

@@ -26,6 +26,8 @@ interface BoardProps {
   onColumnClick: (column: number) => void;
   // Shown to the left of the grid (the evaluation bar)
   aside?: React.ReactNode;
+  // False for the home page demo: no buttons, hover or clicks
+  interactive?: boolean;
 }
 
 const cells = Array.from({ length: ROWS * COLS }, (_, i) => [Math.floor(i / COLS), i % COLS] as const);
@@ -36,7 +38,7 @@ const cells = Array.from({ length: ROWS * COLS }, (_, i) => [Math.floor(i / COLS
 // focus and screen readers.
 export const Board: React.FC<BoardProps> = ({
   board, skin, currentPlayer, winner, winningCells, isGameOver, lastMove,
-  canPlay, hoveredColumn, hintColumn, onHover, onColumnClick, aside,
+  canPlay, hoveredColumn, hintColumn, onHover, onColumnClick, aside, interactive = true,
 }) => {
   const { t } = useI18n();
   const previewColumn = canPlay && hoveredColumn !== null && isColumnAvailable(board, hoveredColumn) ? hoveredColumn : null;
@@ -47,8 +49,10 @@ export const Board: React.FC<BoardProps> = ({
   return (
     <div className={`board ${SKIN_CLASSES[skin] ?? 'skin-classic'} ${canPlay ? '' : 'board-waiting'} ${aside ? 'has-aside' : ''}`} onMouseLeave={() => onHover(null)}>
       {aside && <div className="board-aside">{aside}</div>}
-      <div className="board-columns">
-        {Array.from({ length: COLS }, (_, c) => (
+      <div className="board-columns" aria-hidden={!interactive || undefined}>
+        {Array.from({ length: COLS }, (_, c) => !interactive ? (
+          <span key={c} className="column-indicator"><span className="column-number">{c + 1}</span></span>
+        ) : (
           <button
             key={c}
             className={`column-indicator ${hoveredColumn === c ? 'is-active' : ''} ${hintColumn === c ? 'is-hint' : ''}`}
@@ -87,7 +91,7 @@ export const Board: React.FC<BoardProps> = ({
 
         <div className="board-face" aria-hidden="true" />
 
-        <div className="board-hits">
+        <div className="board-hits" hidden={!interactive}>
           {cells.map(([r, c]) => (
             <div
               key={`${r}-${c}`}

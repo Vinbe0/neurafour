@@ -303,7 +303,11 @@
 .lobby-slot.yellow { box-shadow: inset 3px 0 0 var(--yellow); }
 
 .lobby-slot-avatar {
-  font-size: 18px;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--surface-3);
 }
 
 .lobby-slot strong {

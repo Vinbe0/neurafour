@@ -105,6 +105,12 @@
   background: var(--surface-2);
 }
 
+.grade-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
 .grade-row strong {
   color: var(--text);
   font-weight: 600;

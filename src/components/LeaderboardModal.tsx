@@ -4,6 +4,7 @@ import type { UserProfile, LeaderboardItem } from '../types';
 import { playClick } from '../sound';
 import { useI18n } from '../i18n';
 import { fetchLeaderboardFromSupabase, syncProfileToSupabase } from '../services/database';
+import { Avatar } from './Avatar';
 
 interface LeaderboardModalProps {
   isOpen: boolean;
@@ -135,7 +136,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             return (
               <li key={player.username + idx} className={`lb-row ${isSelf ? 'self' : ''} ${idx < 3 ? `top-${idx + 1}` : ''}`}>
                 <span className="lb-rank">{idx + 1}</span>
-                <span className="lb-avatar">{player.avatar}</span>
+                <span className="lb-avatar"><Avatar value={player.avatar} size={14} /></span>
                 <div className="lb-player">
                   <strong>
                     {player.username}
