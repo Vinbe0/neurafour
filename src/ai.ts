@@ -90,6 +90,10 @@ export interface Evaluation {
   winner: PlayerType | null;
   // Moves the winner needs, counting their winning move
   movesToWin: number | null;
+  // What the search did, for the engine readout on the home page
+  depth: number;
+  positions: number;
+  bestColumn: number;
 }
 
 // By default the search stops after 150 ms; tests pass a fixed depth instead so the
@@ -103,10 +107,11 @@ export const evaluatePosition = (
     ? { maxDepth, symmetric: true }
     : { maxDepth: ROWS * COLS, timeMs, symmetric: true });
   const score = toMove === 'red' ? result.score : -result.score;
-  if (Math.abs(result.score) <= WIN_THRESHOLD) return { score, winner: null, movesToWin: null };
+  const stats = { depth: result.depth, positions: result.nodes, bestColumn: result.column };
+  if (Math.abs(result.score) <= WIN_THRESHOLD) return { score, winner: null, movesToWin: null, ...stats };
   // A win found at ply p scores WIN_SCORE - p; the winner moves on every other ply
   const plies = WIN_SCORE - Math.abs(result.score);
-  return { score, winner: score > 0 ? 'red' : 'yellow', movesToWin: Math.ceil(plies / 2) };
+  return { score, winner: score > 0 ? 'red' : 'yellow', movesToWin: Math.ceil(plies / 2), ...stats };
 };
 
 // API: Get best move for AI

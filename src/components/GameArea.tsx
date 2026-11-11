@@ -169,7 +169,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
     if (!startRequest) return;
     setGameMode(startRequest.mode);
     if (startRequest.difficulty) setDifficulty(startRequest.difficulty);
-    resetLocalGame({ mode: startRequest.mode });
+    setAiFirst(false);
+    resetLocalGame({ mode: startRequest.mode, aiStarts: false });
+    // Started by dropping a disc on the home page: that disc is the first move
+    if (startRequest.firstMove !== undefined) {
+      const outcome = playMove(newGame('red'), startRequest.firstMove, 'red');
+      if (outcome) setGame(outcome.state);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startRequest]);
 

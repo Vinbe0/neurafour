@@ -1,97 +1,305 @@
-/* Home page: hero with a live engine game, quick start tiles, features */
+/* Home page: built around the board rather than cards.
+   A playable hero board, opponents drawn as board columns, a live engine readout,
+   and numbered notes separated by hairlines. */
 
 .home {
-  display: grid;
-  gap: 72px;
-  max-width: 1180px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 56px 24px 72px;
+  padding: 0 28px 40px;
 }
 
-.home-hero {
+.disc {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.disc.red { background: var(--red); }
+.disc.yellow { background: var(--yellow); }
+
+/* Hero ---------------------------------------------------------------- */
+
+.hero {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
   align-items: center;
-  gap: 56px;
+  gap: 64px;
+  min-height: min(760px, calc(100vh - 56px));
+  padding: 48px 0 64px;
 }
 
-.hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 500;
+/* A faint grid of board holes behind the hero, fading towards the edges */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0 -28px;
+  z-index: -1;
+  background-image: radial-gradient(circle, var(--surface-3) 0 7px, transparent 8px);
+  background-size: 34px 34px;
+  background-position: center;
+  opacity: 0.55;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 30% 45%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 30% 45%, #000 0%, transparent 75%);
+  pointer-events: none;
 }
 
-.hero-copy h1 {
-  margin: 18px 0 16px;
-  font-size: clamp(32px, 4.4vw, 52px);
+.hero-title {
+  display: grid;
+  font-size: clamp(42px, 6vw, 78px);
   font-weight: 650;
-  line-height: 1.06;
-  letter-spacing: -0.035em;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.hero-title-quiet {
+  color: var(--text-3);
 }
 
 .hero-lead {
-  max-width: 520px;
+  max-width: 500px;
+  margin-top: 26px;
   color: var(--text-2);
   font-size: 16px;
   line-height: 1.6;
 }
 
-.hero-actions {
+.hero-prompt {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
-  margin-top: 28px;
-}
-
-.btn.hero-cta {
-  height: 42px;
-  padding: 0 18px;
+  margin-top: 34px;
+  color: var(--text);
   font-size: 14px;
-  border-radius: var(--radius);
+  font-weight: 500;
 }
 
-.hero-stats {
+.hero-prompt .disc {
+  width: 14px;
+  height: 14px;
+  animation: nudge 1.8s ease-in-out infinite;
+}
+
+@keyframes nudge {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(5px); }
+  60% { transform: translateY(0); }
+}
+
+.hero-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 32px;
-  margin-top: 40px;
-  padding-top: 24px;
+  gap: 22px;
+  margin-top: 18px;
+}
+
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  border: none;
+  border-bottom: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.text-link:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.text-link svg {
+  transition: transform 0.15s ease;
+}
+
+.text-link:hover svg {
+  transform: translateX(3px);
+}
+
+.hero-board,
+.engine-board {
+  display: grid;
+  gap: 12px;
+}
+
+.hero-board-caption,
+.engine-board-caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.hero-board-caption span,
+.engine-board-caption span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.engine-vs {
+  color: var(--text-3);
+}
+
+.hero-board .board-grid {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 30px 80px -20px rgba(35, 64, 122, 0.55);
+}
+
+/* Sections ------------------------------------------------------------ */
+
+.home-band {
+  padding: 72px 0;
   border-top: 1px solid var(--border);
 }
 
-.hero-stats dt {
-  font-size: 20px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
+.band-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 32px;
+  margin-bottom: 40px;
 }
 
-.hero-stats dd {
-  color: var(--text-3);
+.band-head h2 {
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+.band-head p {
+  max-width: 440px;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+/* Opponents as board columns ----------------------------------------- */
+
+.depth-columns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.depth-column {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: 1fr auto auto;
+  column-gap: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.depth-stack {
+  position: relative;
+  grid-row: 1 / span 3;
+  display: grid;
+  gap: 5px;
+  padding: 6px;
+  border-radius: 9px;
+  background: var(--board);
+  transition: transform 0.2s ease;
+}
+
+.depth-column:hover .depth-stack,
+.depth-column:focus-visible .depth-stack {
+  transform: translateY(-4px);
+}
+
+.depth-hole {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--hole);
+}
+
+.depth-hole.red,
+.depth-hole.yellow {
+  animation: depth-drop 0.45s cubic-bezier(0.33, 0, 0.67, 1) both;
+  animation-delay: calc(var(--i) * 70ms);
+}
+
+.depth-hole.red { background: radial-gradient(circle at 34% 30%, var(--red-light), var(--red) 50%, var(--red-dark)); }
+.depth-hole.yellow { background: radial-gradient(circle at 34% 30%, var(--yellow-light), var(--yellow) 50%, var(--yellow-dark)); }
+
+/* Replay the drop when the column is pointed at */
+.depth-column:hover .depth-hole.red,
+.depth-column:hover .depth-hole.yellow {
+  animation-name: depth-drop-again;
+}
+
+@keyframes depth-drop {
+  from { transform: translateY(-140%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes depth-drop-again {
+  from { transform: translateY(-140%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.depth-more {
+  position: absolute;
+  top: -10px;
+  left: 30px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.depth-column.overflow .depth-stack {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 40px -16px rgba(229, 72, 77, 0.5);
+}
+
+.depth-name {
+  grid-row: 2;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.depth-plies {
+  grid-row: 3;
+  color: var(--text-2);
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
-/* Live engine game */
-.demo-game {
+/* Engine room ---------------------------------------------------------- */
+
+.engine-room-grid {
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  box-shadow: var(--shadow-lg);
+  grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
+  align-items: start;
+  gap: 56px;
 }
 
-.demo-header {
+.readout {
+  font-family: var(--font-mono);
+}
+
+.readout-title {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-strong);
   color: var(--text-2);
   font-size: 12px;
-  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .live-dot {
@@ -99,180 +307,123 @@
   height: 7px;
   border-radius: 50%;
   background: var(--danger);
-  box-shadow: 0 0 0 3px var(--danger-soft);
   animation: live 1.6s ease-in-out infinite;
 }
 
 @keyframes live {
-  50% { opacity: 0.4; }
+  50% { opacity: 0.35; }
 }
 
-.demo-moves {
-  margin-left: auto;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.demo-game .board-columns {
-  visibility: hidden;
-  height: 6px;
-  margin: 0;
-}
-
-.demo-players {
+.readout-row {
   display: flex;
-  justify-content: space-between;
-  color: var(--text-2);
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 13px;
+}
+
+.readout-row dt {
+  color: var(--text-3);
+}
+
+.readout-row dd {
+  margin-left: auto;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.readout-note {
+  margin-top: 14px;
+  color: var(--text-3);
   font-size: 12px;
 }
 
-.demo-players span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
+/* Notes -------------------------------------------------------------- */
 
-.demo-players .player-disc {
-  opacity: 1;
-}
-
-/* Sections */
-.section-heading {
-  margin-bottom: 20px;
-}
-
-.section-heading h2 {
-  font-size: 22px;
-  letter-spacing: -0.02em;
-}
-
-.section-heading p {
-  margin-top: 4px;
-  color: var(--text-2);
-}
-
-.quick-grid {
+.notes {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 48px;
+  row-gap: 40px;
+  list-style: none;
 }
 
-.quick-tile {
+.notes li {
   display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto;
-  align-items: center;
-  column-gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  text-align: left;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-strong);
 }
 
-.quick-tile:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-2);
-  transform: translateY(-1px);
-}
-
-.quick-icon {
+.note-number {
   grid-row: span 2;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--text-2);
-}
-
-.quick-tile:hover .quick-icon {
-  color: var(--accent);
-}
-
-.quick-title {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.quick-detail {
-  color: var(--text-2);
+  color: var(--text-3);
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+.notes h3 {
+  margin-bottom: 8px;
+  font-size: 17px;
+  letter-spacing: -0.015em;
 }
 
-.feature-card {
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-}
-
-.feature-icon {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  margin-bottom: 14px;
-  border-radius: var(--radius);
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.feature-card h3 {
-  margin-bottom: 6px;
-  font-size: 14px;
-}
-
-.feature-card p {
+.notes p {
   color: var(--text-2);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.65;
 }
+
+/* Responsive --------------------------------------------------------- */
 
 @media (max-width: 980px) {
-  .home {
-    gap: 56px;
-    padding-top: 36px;
-  }
-
-  .home-hero {
+  .hero {
     grid-template-columns: 1fr;
-    gap: 36px;
+    gap: 40px;
+    min-height: 0;
+    padding-top: 40px;
   }
 
-  .demo-game {
-    max-width: 560px;
+  .hero-board {
+    max-width: 520px;
   }
 
-  .quick-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .band-head,
+  .engine-room-grid {
+    grid-template-columns: 1fr;
   }
 
-  .feature-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .band-head {
+    gap: 12px;
+  }
+
+  .engine-room-grid {
+    gap: 32px;
+  }
+
+  .engine-board {
+    max-width: 520px;
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 620px) {
   .home {
-    padding: 28px 16px 48px;
+    padding: 0 16px 32px;
   }
 
-  .quick-grid,
-  .feature-grid {
+  .home-band {
+    padding: 52px 0;
+  }
+
+  .depth-columns {
+    grid-template-columns: repeat(2, 1fr);
+    row-gap: 32px;
+  }
+
+  .notes {
     grid-template-columns: 1fr;
-  }
-
-  .hero-stats {
-    gap: 22px;
   }
 }
