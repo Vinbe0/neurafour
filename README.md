@@ -17,7 +17,7 @@
 - **AI Coach.** After each game, every move is graded (perfect / great / good / mistake / blunder) against the engine's best move. The coach points out missed wins, missed blocks and moves that handed your opponent a win.
 - **Accounts and leaderboard.** Supabase auth, with a global and per-city leaderboard and match history. Scores are computed in the database, not trusted from the browser ([details](#leaderboard-security)). It works offline too, using a localStorage cache.
 - **Progression.** Levels, CyberPoints, a skin shop, and a PRO tier prototype.
-- **English / Russian interface.** A full translation system with a one-click switch. It remembers your choice and defaults to your browser's language.
+- **English / Russian interface.** A full translation system with a one-click switch. It starts in English and remembers your choice.
 - **Play your way.** Keyboard controls (`1`–`7`, or `←`/`→` + `Enter`, and `U` to undo), undo, a choice of who moves first against the AI, a live move list, and a ghost preview of where your token will land.
 - **A lichess-style layout.** Game setup on the left, the board in the middle, and the players with a numbered move list on the right. The board is built in layers, so a dropped disc falls *behind* the board face and shows through the holes. Calm dark and light themes come from one set of design tokens (`src/styles/tokens.css`).
 - Dark/light theme (remembered), responsive layout down to phone width, sound effects, a highlighted winning line, and in-app notifications. Animations are reduced if your system asks for less motion.
