@@ -593,14 +593,15 @@ interface I18nValue {
 
 const I18nContext = createContext<I18nValue | null>(null);
 
+// English unless the player picked a language with the switch (that choice is saved)
 const detectLang = (): Lang => {
   try {
     const stored = localStorage.getItem(STORAGE_LANG_KEY);
     if (stored === 'en' || stored === 'ru') return stored;
   } catch {
-    // storage unavailable, fall through to browser language
+    // storage unavailable: use the default
   }
-  return navigator.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
+  return 'en';
 };
 
 // eslint-disable-next-line react-refresh/only-export-components

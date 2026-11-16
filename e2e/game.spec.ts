@@ -41,6 +41,16 @@ test('keyboard plays a local game to a win and offers the AI Coach', async ({ pa
   await expect(moveList(page)).toHaveCount(7);
 });
 
+test('the interface starts in English even in a Russian browser', async ({ browser }) => {
+  // No saved choice and a Russian browser: still English
+  const context = await browser.newContext({ locale: 'ru-RU' });
+  const page = await context.newPage();
+  await page.goto('/#/play');
+  await expect(page.locator('.status-title')).toHaveText('Your turn');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await context.close();
+});
+
 test('the language switch translates the interface', async ({ page }) => {
   await page.goto('/#/play');
   await page.getByRole('button', { name: 'Switch language' }).click();
